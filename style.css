@@ -32,6 +32,14 @@ html, body {
   justify-content: center;
 }
 
+body.no-scroll {
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
+  position: fixed;
+  width: 100%;
+}
+
 .app { max-width: 520px; width: 100%; padding: 12px; position: relative; z-index: 2; }
 
 /* ── HEADER ── */
@@ -402,9 +410,16 @@ canvas {
   background: var(--parchment);
   border-radius: var(--r);
   border: 1px solid var(--border);
-  cursor: crosshair;
   display: block;
   touch-action: none;
+}
+
+#canvas {
+  cursor: default;
+}
+
+#canvasFull {
+  cursor: crosshair;
 }
 
 .drawingControls {
@@ -425,12 +440,17 @@ canvas {
 
 /* ── FULLSCREEN CANVAS ── */
 #canvasFullscreen {
-  position: fixed; top: 0; left: 0;
-  width: 100vw; height: 100vh;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
   background: var(--parchment);
   z-index: 9999;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 .fs-toolbar {
@@ -448,11 +468,23 @@ canvas {
 .fs-toolbar input[type="range"] { width: 60px; cursor: pointer; }
 .fs-toolbar input[type="color"] { width: 28px; height: 24px; padding: 1px; cursor: pointer; border-radius: 3px; }
 .fs-toolbar button {
-  background: var(--surface3); border: 1px solid var(--border); color: var(--text);
-  padding: 6px 14px; border-radius: var(--r); font-family: 'Cinzel', serif; font-size: 0.72rem; cursor: pointer;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 14px;
+  border-radius: var(--r);
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  cursor: pointer;
 }
 
-#canvasFull { flex: 1; width: 100%; cursor: crosshair; touch-action: none; }
+#canvasFull {
+  flex: 1;
+  width: 100%;
+  height: auto;
+  display: block;
+  touch-action: none;
+}
 
 /* ── DATABASE ── */
 .db-toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
@@ -833,7 +865,6 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
   header { padding: 18px 28px; }
   header h1 { font-size: 1.7rem; }
 
-  /* Home: stats row + 3-col button grid */
   .stats-strip {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -852,7 +883,6 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
   .mainButton .btn-icon { font-size: 2rem; }
   .mainButton .btn-label { font-size: 0.85rem; }
 
-  /* Artifact form: two-column card layout */
   #artifactScreen {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -863,17 +893,14 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
   #artifactScreen > h2 { grid-column: 1 / -1; }
   #artifactScreen > .save { grid-column: 1 / -1; margin-top: 8px; }
 
-  /* Full-width cards */
   #artifactScreen > .card:has(#qrcode),
   #artifactScreen > .card:has(canvas),
   #artifactScreen > .card:has(#notes) {
     grid-column: 1 / -1;
   }
 
-  /* Type grid: 6 columns */
   .type-grid { grid-template-columns: repeat(6, 1fr); }
 
-  /* Database: two-column list */
   #artifactList {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -882,7 +909,6 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
   }
   #artifactList .artifactCard { margin-top: 0; }
 
-  /* Stats: two-column */
   #statsContent {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -891,13 +917,10 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
   #statsContent .stats-card:last-child { grid-column: 1 / -1; }
   .stat-bar-label { min-width: 130px; }
 
-  /* Map taller */
   #map { height: calc(100vh - 180px); min-height: 500px; }
 
-  /* Scanner centered */
-  #reader { min-height: 460px; max-width: 600px; margin: 0 auto; } 
+  #reader { min-height: 460px; max-width: 600px; margin: 0 auto; }
 
-  /* Voice capture split */
   #voiceCaptureScreen {
     display: grid;
     grid-template-columns: 1fr 1fr;
