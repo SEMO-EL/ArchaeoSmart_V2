@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1207">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ArchaeoSmart</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Background particles -->
+<div class="bg-layer" id="bgLayer"></div>
+
+<!-- App wrapper -->
+<div id="app">
+
+  <!-- Header -->
+  <header id="appHeader">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">⚱</span>
+        <div class="logo-text">
+          <span class="logo-title">ArchaeoSmart</span>
+          <span class="logo-sub">Field Recording System</span>
+        </div>
+      </div>
+      <button class="install-btn" id="installBtn" style="display:none">Install App</button>
+    </div>
+  </header>
+
+  <!-- Bottom nav -->
+  <nav id="bottomNav">
+    <button class="nav-btn active" data-screen="home">
+      <span class="nav-icon">⌂</span>
+      <span class="nav-label">Home</span>
+    </button>
+    <button class="nav-btn" data-screen="record">
+      <span class="nav-icon">✦</span>
+      <span class="nav-label">Record</span>
+    </button>
+    <button class="nav-btn" data-screen="database">
+      <span class="nav-icon">◈</span>
+      <span class="nav-label">Archive</span>
+    </button>
+    <button class="nav-btn" data-screen="map">
+      <span class="nav-icon">◎</span>
+      <span class="nav-label">Map</span>
+    </button>
+    <button class="nav-btn" data-screen="scan">
+      <span class="nav-icon">⊞</span>
+      <span class="nav-label">Scan</span>
+    </button>
+  </nav>
+
+  <!-- Screens -->
+  <main id="mainContent">
+
+    <!-- HOME SCREEN -->
+    <div class="screen active" id="screen-home">
+      <div class="home-hero">
+        <div class="hero-ornament">⚱</div>
+        <h1 class="hero-title">Field Recording<br><em>System</em></h1>
+        <p class="hero-sub">Digital artifact documentation for archaeologists</p>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <span class="stat-num" id="statTotal">0</span>
+          <span class="stat-label">Artifacts</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-num" id="statSites">0</span>
+          <span class="stat-label">Sites</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-num" id="statGPS">0</span>
+          <span class="stat-label">Geo-tagged</span>
+        </div>
+      </div>
+
+      <div class="quick-actions">
+        <button class="qa-btn primary" onclick="goToScreen('record')">
+          <span class="qa-icon">✦</span>
+          <div>
+            <strong>New Artifact</strong>
+            <span>Record an excavation find</span>
+          </div>
+        </button>
+        <button class="qa-btn" onclick="goToScreen('scan')">
+          <span class="qa-icon">⊞</span>
+          <div>
+            <strong>Scan QR</strong>
+            <span>Retrieve artifact by code</span>
+          </div>
+        </button>
+        <button class="qa-btn" onclick="goToScreen('database')">
+          <span class="qa-icon">◈</span>
+          <div>
+            <strong>Archive</strong>
+            <span>Browse all records</span>
+          </div>
+        </button>
+        <button class="qa-btn" onclick="goToScreen('map')">
+          <span class="qa-icon">◎</span>
+          <div>
+            <strong>Map View</strong>
+            <span>Visualize excavation sites</span>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- RECORD SCREEN -->
+    <div class="screen" id="screen-record">
+      <div class="screen-header">
+        <h2>New Artifact</h2>
+        <p class="screen-sub">Document your find</p>
+      </div>
+
+      <div class="form-scroll">
+        <div class="field-group">
+          <label>Site ID</label>
+          <input type="text" id="fSite" placeholder="e.g. SITE-001, Tell Halaf" autocomplete="off">
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label>Artifact Type</label>
+            <select id="fType">
+              <option value="">Select type…</option>
+              <option>Ceramic / Pottery</option>
+              <option>Lithic / Stone Tool</option>
+              <option>Bone / Faunal</option>
+              <option>Metal Object</option>
+              <option>Glass</option>
+              <option>Organic Material</option>
+              <option>Architectural</option>
+              <option>Coin / Currency</option>
+              <option>Inscription</option>
+              <option>Figurine</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Depth (cm)</label>
+            <input type="number" id="fDepth" placeholder="e.g. 45">
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label>Excavation Date</label>
+          <input type="date" id="fDate">
+        </div>
+
+        <!-- GPS -->
+        <div class="field-group">
+          <label>GPS Coordinates</label>
+          <div class="gps-row">
+            <input type="text" id="fLat" placeholder="Latitude" readonly>
+            <input type="text" id="fLng" placeholder="Longitude" readonly>
+            <button class="icon-btn" id="gpsBtn" onclick="captureGPS()">📍 Get GPS</button>
+          </div>
+          <span id="gpsStatus" class="field-hint"></span>
+        </div>
+
+        <!-- Notes -->
+        <div class="field-group">
+          <label>Field Notes</label>
+          <textarea id="fNotes" rows="3" placeholder="Describe the artifact, context, stratigraphy…"></textarea>
+        </div>
+
+        <!-- Voice notes -->
+        <div class="field-group">
+          <label>Voice Recording</label>
+          <div class="voice-controls">
+            <button class="icon-btn" id="voiceRecordBtn" onclick="toggleVoiceRecord()">🎙 Start Recording</button>
+            <button class="icon-btn" id="voiceSTTBtn" onclick="startSTT()">🗣 Speech-to-Text</button>
+          </div>
+          <div id="voiceStatus" class="field-hint"></div>
+          <textarea id="fVoiceText" rows="2" placeholder="Speech-to-text will appear here…" style="margin-top:8px"></textarea>
+          <audio id="voicePlayback" controls style="display:none;width:100%;margin-top:6px"></audio>
+        </div>
+
+        <!-- Photo -->
+        <div class="field-group">
+          <label>Photo</label>
+          <div class="media-row">
+            <button class="icon-btn" onclick="document.getElementById('photoInput').click()">📷 Capture</button>
+            <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(event)">
+          </div>
+          <div id="photoPreview"></div>
+        </div>
+
+        <!-- Drawing -->
+        <div class="field-group">
+          <label>Artifact Drawing</label>
+          <div class="draw-toolbar">
+            <input type="color" id="brushColor" value="#3d2b1f" title="Color">
+            <label>Size <input type="range" id="brushSize" min="1" max="30" value="4"></label>
+            <label>Opacity <input type="range" id="brushOpacity" min="0.1" max="1" step="0.1" value="1"></label>
+            <button class="icon-btn small" onclick="clearCanvas()">✕ Clear</button>
+            <button class="icon-btn small" onclick="openFullscreenDraw()">⛶ Expand</button>
+          </div>
+          <canvas id="drawCanvas" width="600" height="240"></canvas>
+        </div>
+
+        <button class="submit-btn" onclick="saveArtifact()">
+          <span>⚱</span> Save Artifact to Record
+        </button>
+      </div>
+    </div>
+
+    <!-- DATABASE SCREEN -->
+    <div class="screen" id="screen-database">
+      <div class="screen-header">
+        <h2>Artifact Archive</h2>
+        <p class="screen-sub" id="dbCount">Loading…</p>
+      </div>
+      <div class="db-toolbar">
+        <input type="search" id="searchInput" placeholder="Search artifacts…" oninput="filterArtifacts(this.value)">
+        <button class="icon-btn small" onclick="exportCSV()">↓ CSV</button>
+      </div>
+      <div id="artifactList" class="artifact-list"></div>
+    </div>
+
+    <!-- MAP SCREEN -->
+    <div class="screen" id="screen-map">
+      <div class="screen-header">
+        <h2>Site Map</h2>
+        <p class="screen-sub">Artifact locations</p>
+      </div>
+      <div id="mapContainer"></div>
+    </div>
+
+    <!-- SCAN SCREEN -->
+    <div class="screen" id="screen-scan">
+      <div class="screen-header">
+        <h2>QR Scanner</h2>
+        <p class="screen-sub">Point camera at artifact QR code</p>
+      </div>
+      <div id="qrReader"></div>
+      <div id="scanResult" class="scan-result"></div>
+    </div>
+
+  </main>
+
+</div>
+
+<!-- Artifact Detail Modal -->
+<div id="detailModal" class="modal" style="display:none">
+  <div class="modal-inner">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div id="detailContent"></div>
+  </div>
+</div>
+
+<!-- Fullscreen drawing canvas -->
+<div id="fullscreenDraw" style="display:none">
+  <div class="fs-toolbar">
+    <input type="color" id="fsBrushColor" value="#3d2b1f">
+    <label>Size <input type="range" id="fsBrushSize" min="1" max="40" value="4"></label>
+    <label>Opacity <input type="range" id="fsBrushOpacity" min="0.1" max="1" step="0.1" value="1"></label>
+    <button class="icon-btn small" onclick="clearFSCanvas()">✕</button>
+    <button class="icon-btn small" onclick="closeFSDraw()">✓ Done</button>
+  </div>
+  <canvas id="fsCanvas"></canvas>
+</div>
+
+<!-- Scripts -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
