@@ -1,282 +1,259 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#1a1207">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>ArchaeoSmart</title>
 <link rel="manifest" href="manifest.json">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="style.css">
+<meta name="theme-color" content="#1a1207">
+<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </head>
 <body>
 
-<!-- Background particles -->
-<div class="bg-layer" id="bgLayer"></div>
+<div id="bgLayer"></div>
 
-<!-- App wrapper -->
-<div id="app">
+<div class="app">
 
-  <!-- Header -->
-  <header id="appHeader">
-    <div class="header-inner">
-      <div class="logo">
-        <span class="logo-icon">⚱</span>
-        <div class="logo-text">
-          <span class="logo-title">ArchaeoSmart</span>
-          <span class="logo-sub">Field Recording System</span>
-        </div>
-      </div>
-      <button class="install-btn" id="installBtn" style="display:none">Install App</button>
+  <!-- HEADER -->
+  <header>
+    <button class="homeBtn" onclick="showHome()" title="Home">⌂</button>
+    <div class="header-center">
+      <h1>ArchaeoSmart</h1>
+      <span class="header-sub">Field Recording System</span>
     </div>
+    <button class="fieldModeBtn" id="fieldModeBtn" onclick="toggleFieldMode()" title="Field Mode">☀</button>
   </header>
 
-  <!-- Bottom nav -->
-  <nav id="bottomNav">
-    <button class="nav-btn active" data-screen="home">
-      <span class="nav-icon">⌂</span>
-      <span class="nav-label">Home</span>
-    </button>
-    <button class="nav-btn" data-screen="record">
-      <span class="nav-icon">✦</span>
-      <span class="nav-label">Record</span>
-    </button>
-    <button class="nav-btn" data-screen="database">
-      <span class="nav-icon">◈</span>
-      <span class="nav-label">Archive</span>
-    </button>
-    <button class="nav-btn" data-screen="map">
-      <span class="nav-icon">◎</span>
-      <span class="nav-label">Map</span>
-    </button>
-    <button class="nav-btn" data-screen="scan">
-      <span class="nav-icon">⊞</span>
-      <span class="nav-label">Scan</span>
-    </button>
-  </nav>
-
-  <!-- Screens -->
-  <main id="mainContent">
-
-    <!-- HOME SCREEN -->
-    <div class="screen active" id="screen-home">
-      <div class="home-hero">
-        <div class="hero-ornament">⚱</div>
-        <h1 class="hero-title">Field Recording<br><em>System</em></h1>
-        <p class="hero-sub">Digital artifact documentation for archaeologists</p>
-      </div>
-
-      <div class="stats-row">
-        <div class="stat-card">
-          <span class="stat-num" id="statTotal">0</span>
-          <span class="stat-label">Artifacts</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-num" id="statSites">0</span>
-          <span class="stat-label">Sites</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-num" id="statGPS">0</span>
-          <span class="stat-label">Geo-tagged</span>
-        </div>
-      </div>
-
-      <div class="quick-actions">
-        <button class="qa-btn primary" onclick="goToScreen('record')">
-          <span class="qa-icon">✦</span>
-          <div>
-            <strong>New Artifact</strong>
-            <span>Record an excavation find</span>
-          </div>
-        </button>
-        <button class="qa-btn" onclick="goToScreen('scan')">
-          <span class="qa-icon">⊞</span>
-          <div>
-            <strong>Scan QR</strong>
-            <span>Retrieve artifact by code</span>
-          </div>
-        </button>
-        <button class="qa-btn" onclick="goToScreen('database')">
-          <span class="qa-icon">◈</span>
-          <div>
-            <strong>Archive</strong>
-            <span>Browse all records</span>
-          </div>
-        </button>
-        <button class="qa-btn" onclick="goToScreen('map')">
-          <span class="qa-icon">◎</span>
-          <div>
-            <strong>Map View</strong>
-            <span>Visualize excavation sites</span>
-          </div>
-        </button>
-      </div>
+  <!-- HOME -->
+  <div id="homeScreen" class="screen">
+    <div class="stats-strip">
+      <div class="stat-box"><span id="statTotal">0</span><label>Artifacts</label></div>
+      <div class="stat-box"><span id="statSites">0</span><label>Sites</label></div>
+      <div class="stat-box"><span id="statToday">0</span><label>Today</label></div>
+      <div class="stat-box"><span id="statGPS">0</span><label>Geo-tagged</label></div>
     </div>
 
-    <!-- RECORD SCREEN -->
-    <div class="screen" id="screen-record">
-      <div class="screen-header">
-        <h2>New Artifact</h2>
-        <p class="screen-sub">Document your find</p>
-      </div>
-
-      <div class="form-scroll">
-        <div class="field-group">
-          <label>Site ID</label>
-          <input type="text" id="fSite" placeholder="e.g. SITE-001, Tell Halaf" autocomplete="off">
-        </div>
-
-        <div class="field-row">
-          <div class="field-group">
-            <label>Artifact Type</label>
-            <select id="fType">
-              <option value="">Select type…</option>
-              <option>Ceramic / Pottery</option>
-              <option>Lithic / Stone Tool</option>
-              <option>Bone / Faunal</option>
-              <option>Metal Object</option>
-              <option>Glass</option>
-              <option>Organic Material</option>
-              <option>Architectural</option>
-              <option>Coin / Currency</option>
-              <option>Inscription</option>
-              <option>Figurine</option>
-              <option>Other</option>
-            </select>
-          </div>
-          <div class="field-group">
-            <label>Depth (cm)</label>
-            <input type="number" id="fDepth" placeholder="e.g. 45">
-          </div>
-        </div>
-
-        <div class="field-group">
-          <label>Excavation Date</label>
-          <input type="date" id="fDate">
-        </div>
-
-        <!-- GPS -->
-        <div class="field-group">
-          <label>GPS Coordinates</label>
-          <div class="gps-row">
-            <input type="text" id="fLat" placeholder="Latitude" readonly>
-            <input type="text" id="fLng" placeholder="Longitude" readonly>
-            <button class="icon-btn" id="gpsBtn" onclick="captureGPS()">📍 Get GPS</button>
-          </div>
-          <span id="gpsStatus" class="field-hint"></span>
-        </div>
-
-        <!-- Notes -->
-        <div class="field-group">
-          <label>Field Notes</label>
-          <textarea id="fNotes" rows="3" placeholder="Describe the artifact, context, stratigraphy…"></textarea>
-        </div>
-
-        <!-- Voice notes -->
-        <div class="field-group">
-          <label>Voice Recording</label>
-          <div class="voice-controls">
-            <button class="icon-btn" id="voiceRecordBtn" onclick="toggleVoiceRecord()">🎙 Start Recording</button>
-            <button class="icon-btn" id="voiceSTTBtn" onclick="startSTT()">🗣 Speech-to-Text</button>
-          </div>
-          <div id="voiceStatus" class="field-hint"></div>
-          <textarea id="fVoiceText" rows="2" placeholder="Speech-to-text will appear here…" style="margin-top:8px"></textarea>
-          <audio id="voicePlayback" controls style="display:none;width:100%;margin-top:6px"></audio>
-        </div>
-
-        <!-- Photo -->
-        <div class="field-group">
-          <label>Photo</label>
-          <div class="media-row">
-            <button class="icon-btn" onclick="document.getElementById('photoInput').click()">📷 Capture</button>
-            <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(event)">
-          </div>
-          <div id="photoPreview"></div>
-        </div>
-
-        <!-- Drawing -->
-        <div class="field-group">
-          <label>Artifact Drawing</label>
-          <div class="draw-toolbar">
-            <input type="color" id="brushColor" value="#3d2b1f" title="Color">
-            <label>Size <input type="range" id="brushSize" min="1" max="30" value="4"></label>
-            <label>Opacity <input type="range" id="brushOpacity" min="0.1" max="1" step="0.1" value="1"></label>
-            <button class="icon-btn small" onclick="clearCanvas()">✕ Clear</button>
-            <button class="icon-btn small" onclick="openFullscreenDraw()">⛶ Expand</button>
-          </div>
-          <canvas id="drawCanvas" width="600" height="240"></canvas>
-        </div>
-
-        <button class="submit-btn" onclick="saveArtifact()">
-          <span>⚱</span> Save Artifact to Record
-        </button>
-      </div>
+    <div class="home-grid">
+      <button class="mainButton primary" onclick="showArtifact()">
+        <span class="btn-icon">⚱</span>
+        <span class="btn-label">New Artifact</span>
+      </button>
+      <button class="mainButton" onclick="showVoiceCapture()">
+        <span class="btn-icon">🎤</span>
+        <span class="btn-label">Voice Capture</span>
+      </button>
+      <button class="mainButton" onclick="showDatabase()">
+        <span class="btn-icon">◈</span>
+        <span class="btn-label">Archive</span>
+      </button>
+      <button class="mainButton" onclick="startScanner()">
+        <span class="btn-icon">⊞</span>
+        <span class="btn-label">Scan QR</span>
+      </button>
+      <button class="mainButton" onclick="showMap()">
+        <span class="btn-icon">◎</span>
+        <span class="btn-label">Map View</span>
+      </button>
+      <button class="mainButton" onclick="showStats()">
+        <span class="btn-icon">▦</span>
+        <span class="btn-label">Statistics</span>
+      </button>
     </div>
 
-    <!-- DATABASE SCREEN -->
-    <div class="screen" id="screen-database">
-      <div class="screen-header">
-        <h2>Artifact Archive</h2>
-        <p class="screen-sub" id="dbCount">Loading…</p>
-      </div>
-      <div class="db-toolbar">
-        <input type="search" id="searchInput" placeholder="Search artifacts…" oninput="filterArtifacts(this.value)">
-        <button class="icon-btn small" onclick="exportCSV()">↓ CSV</button>
-      </div>
-      <div id="artifactList" class="artifact-list"></div>
+    <div class="backup-bar" id="backupBar" style="display:none">
+      <span id="backupMsg"></span>
+      <button onclick="exportCSV()">Export CSV</button>
     </div>
-
-    <!-- MAP SCREEN -->
-    <div class="screen" id="screen-map">
-      <div class="screen-header">
-        <h2>Site Map</h2>
-        <p class="screen-sub">Artifact locations</p>
-      </div>
-      <div id="mapContainer"></div>
-    </div>
-
-    <!-- SCAN SCREEN -->
-    <div class="screen" id="screen-scan">
-      <div class="screen-header">
-        <h2>QR Scanner</h2>
-        <p class="screen-sub">Point camera at artifact QR code</p>
-      </div>
-      <div id="qrReader"></div>
-      <div id="scanResult" class="scan-result"></div>
-    </div>
-
-  </main>
-
-</div>
-
-<!-- Artifact Detail Modal -->
-<div id="detailModal" class="modal" style="display:none">
-  <div class="modal-inner">
-    <button class="modal-close" onclick="closeModal()">✕</button>
-    <div id="detailContent"></div>
   </div>
-</div>
 
-<!-- Fullscreen drawing canvas -->
-<div id="fullscreenDraw" style="display:none">
-  <div class="fs-toolbar">
-    <input type="color" id="fsBrushColor" value="#3d2b1f">
-    <label>Size <input type="range" id="fsBrushSize" min="1" max="40" value="4"></label>
-    <label>Opacity <input type="range" id="fsBrushOpacity" min="0.1" max="1" step="0.1" value="1"></label>
-    <button class="icon-btn small" onclick="clearFSCanvas()">✕</button>
-    <button class="icon-btn small" onclick="closeFSDraw()">✓ Done</button>
+  <!-- VOICE CAPTURE SCREEN -->
+  <div id="voiceCaptureScreen" class="screen hidden">
+    <h2>Voice Capture</h2>
+    <p class="screen-hint">Speak naturally. Say things like:<br><em>"Ceramic sherd, site Alpha, 40 centimetres depth, good condition, near the east wall"</em></p>
+
+    <div class="voice-big-btn-wrap">
+      <button class="voice-big-btn" id="voiceCaptureBtn" onclick="toggleVoiceCapture()">
+        <span id="voiceCaptureIcon">🎤</span>
+        <span id="voiceCaptureLabel">Hold to Speak</span>
+      </button>
+    </div>
+
+    <div id="voiceTranscript" class="voice-transcript"></div>
+
+    <div id="voiceParsed" class="voice-parsed hidden">
+      <h3>Parsed Fields</h3>
+      <div id="voiceParsedFields"></div>
+      <div class="parsed-actions">
+        <button class="secondaryBtn" onclick="editVoiceParsed()">✎ Edit Before Saving</button>
+        <button class="save" onclick="saveVoiceParsed()">⚱ Save Artifact</button>
+      </div>
+    </div>
   </div>
-  <canvas id="fsCanvas"></canvas>
+
+  <!-- CREATE ARTIFACT -->
+  <div id="artifactScreen" class="screen hidden">
+    <h2>New Artifact Record</h2>
+
+    <div class="card">
+      <label>Site / Excavation Unit</label>
+      <input id="site" placeholder="e.g. Site Alpha, Trench 3">
+
+      <label>Artifact Type</label>
+      <div class="type-grid" id="typeGrid"></div>
+      <select id="type" style="margin-top:8px">
+        <option value="">-- or select from list --</option>
+        <option>Ceramic / Pottery</option>
+        <option>Lithic / Stone Tool</option>
+        <option>Bone / Faunal</option>
+        <option>Metal Object</option>
+        <option>Glass</option>
+        <option>Organic Material</option>
+        <option>Architectural</option>
+        <option>Coin / Currency</option>
+        <option>Inscription</option>
+        <option>Figurine</option>
+        <option>Other</option>
+      </select>
+
+      <label>Stratigraphic Context / Layer</label>
+      <input id="context" placeholder="e.g. Layer IIb, Context 14">
+
+      <label>Depth (cm)</label>
+      <input id="depth" type="number" placeholder="e.g. 45">
+
+      <label>Condition</label>
+      <div class="condition-row" id="conditionRow">
+        <button class="cond-btn" data-v="1" onclick="setCondition(1)">1<span>Poor</span></button>
+        <button class="cond-btn" data-v="2" onclick="setCondition(2)">2<span>Fair</span></button>
+        <button class="cond-btn" data-v="3" onclick="setCondition(3)">3<span>Good</span></button>
+        <button class="cond-btn" data-v="4" onclick="setCondition(4)">4<span>V.Good</span></button>
+        <button class="cond-btn" data-v="5" onclick="setCondition(5)">5<span>Exc.</span></button>
+      </div>
+      <input type="hidden" id="condition" value="">
+    </div>
+
+    <div class="card">
+      <h3>QR Code</h3>
+      <div id="qrcode"></div>
+    </div>
+
+    <div class="card">
+      <h3>GPS Location</h3>
+      <p id="gps">Not recorded</p>
+      <button class="secondaryBtn big-tap" onclick="getLocation()">📍 Get GPS Location</button>
+    </div>
+
+    <div class="card">
+      <h3>Date &amp; Time</h3>
+      <p id="date"></p>
+    </div>
+
+    <div class="card">
+      <h3>Voice Notes</h3>
+      <div class="voiceControls">
+        <button class="big-tap" onclick="startDictation()">🎤 Start Dictation</button>
+        <button class="big-tap" onclick="stopDictation()">⏹ Stop</button>
+      </div>
+      <textarea id="voiceText" placeholder="Voice transcription appears here…"></textarea>
+    </div>
+
+    <div class="card">
+      <h3>Voice Memo</h3>
+      <div class="voiceControls">
+        <button class="big-tap" onclick="startRecording()">🎙 Record</button>
+        <button class="big-tap" onclick="stopRecording()">⏹ Stop</button>
+      </div>
+      <audio id="audioPlayback" controls></audio>
+    </div>
+
+    <div class="card">
+      <h3>Photo</h3>
+      <button class="secondaryBtn big-tap" onclick="document.getElementById('photo').click()">📷 Take / Choose Photo</button>
+      <input type="file" accept="image/*" id="photo" style="display:none">
+      <img id="preview" style="display:none">
+    </div>
+
+    <div class="card">
+      <h3>Drawing</h3>
+      <div class="drawingControls">
+        <label>Brush <input type="range" min="1" max="20" value="3" oninput="currentBrush=this.value"></label>
+        <label>Opacity <input type="range" min="0.1" max="1" step="0.1" value="1" oninput="currentOpacity=this.value"></label>
+        <label>Color <input type="color" oninput="currentColor=this.value"></label>
+      </div>
+      <canvas id="canvas"></canvas>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="secondaryBtn" onclick="clearCanvas()">✕ Clear</button>
+        <button class="secondaryBtn" onclick="openCanvasFullscreen()">⛶ Fullscreen</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Field Notes</h3>
+      <textarea id="notes" placeholder="Describe find context, associations, observations…" rows="4"></textarea>
+    </div>
+
+    <button class="save" onclick="saveArtifact()">⚱ Save Artifact to Record</button>
+  </div>
+
+  <!-- DATABASE -->
+  <div id="databaseScreen" class="screen hidden">
+    <h2>Artifact Archive</h2>
+    <div class="db-toolbar">
+      <input id="searchID" placeholder="Search site, type, ID…" oninput="searchArtifact()">
+      <button class="secondaryBtn" onclick="exportCSV()">↓ CSV</button>
+    </div>
+    <div id="artifactList"></div>
+  </div>
+
+  <!-- DETAIL -->
+  <div id="detailScreen" class="screen hidden">
+    <button class="secondaryBtn" onclick="showDatabase()" style="margin-bottom:12px">← Back</button>
+    <div id="artifactDetail"></div>
+  </div>
+
+  <!-- STATS -->
+  <div id="statsScreen" class="screen hidden">
+    <h2>Statistics</h2>
+    <div id="statsContent"></div>
+  </div>
+
+  <!-- MAP -->
+  <div id="mapScreen" class="screen hidden">
+    <h2>Artifact Map</h2>
+    <div id="map"></div>
+  </div>
+
+  <!-- QR SCANNER -->
+  <div id="scannerScreen" class="screen hidden">
+    <h2>Scan Artifact QR</h2>
+    <p class="screen-hint">Hold the QR code steady inside the frame</p>
+    <div id="reader"></div>
+  </div>
+
+  <!-- FULLSCREEN CANVAS -->
+  <div id="canvasFullscreen" class="hidden">
+    <div class="fs-toolbar">
+      <label>Brush <input type="range" min="1" max="30" value="3" oninput="currentBrush=this.value"></label>
+      <label>Opacity <input type="range" min="0.1" max="1" step="0.1" value="1" oninput="currentOpacity=this.value"></label>
+      <label>Color <input type="color" oninput="currentColor=this.value"></label>
+      <button onclick="clearCanvasFull()">✕ Clear</button>
+      <button onclick="closeCanvasFullscreen()">✓ Done</button>
+    </div>
+    <canvas id="canvasFull"></canvas>
+  </div>
+
 </div>
 
-<!-- Scripts -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="app.js"></script>
+<div id="toast"></div>
+
+<script src="./app.js"></script>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
+}
+</script>
 </body>
 </html>
