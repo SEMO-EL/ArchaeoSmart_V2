@@ -638,7 +638,107 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
+/* ── TABLET ── */
 @media(min-width:520px) {
   body { background: var(--ink); }
   .app { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+}
+
+/* ── DESKTOP ── */
+@media(min-width:900px) {
+  body {
+    background: var(--ink);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .app {
+    max-width: 960px;
+    width: 100%;
+    padding: 24px 32px;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    min-height: 100vh;
+  }
+
+  header { padding: 18px 28px; }
+  header h1 { font-size: 1.7rem; }
+
+  /* Home: stats row + 3-col button grid */
+  .stats-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .stat-box span { font-size: 2rem; }
+
+  .home-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  .mainButton { height: 120px; }
+  .mainButton .btn-icon { font-size: 2rem; }
+  .mainButton .btn-label { font-size: 0.85rem; }
+
+  /* Artifact form: two-column card layout */
+  #artifactScreen {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 20px;
+    align-items: start;
+  }
+
+  #artifactScreen > h2 { grid-column: 1 / -1; }
+  #artifactScreen > .save { grid-column: 1 / -1; margin-top: 8px; }
+
+  /* Full-width cards */
+  #artifactScreen > .card:has(#qrcode),
+  #artifactScreen > .card:has(canvas),
+  #artifactScreen > .card:has(#notes) {
+    grid-column: 1 / -1;
+  }
+
+  /* Type grid: 6 columns */
+  .type-grid { grid-template-columns: repeat(6, 1fr); }
+
+  /* Database: two-column list */
+  #artifactList {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+  #artifactList .artifactCard { margin-top: 0; }
+
+  /* Stats: two-column */
+  #statsContent {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  #statsContent .stats-card:last-child { grid-column: 1 / -1; }
+  .stat-bar-label { min-width: 130px; }
+
+  /* Map taller */
+  #map { height: calc(100vh - 180px); min-height: 500px; }
+
+  /* Scanner centered */
+  #reader { min-height: 460px; max-width: 600px; margin: 0 auto; }
+
+  /* Voice capture split */
+  #voiceCaptureScreen {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 32px;
+    align-items: start;
+  }
+  #voiceCaptureScreen > h2,
+  #voiceCaptureScreen > .screen-hint { grid-column: 1 / -1; }
+  .voice-big-btn { width: 200px; height: 200px; }
+
+  .detailCard { max-width: 700px; }
 }
