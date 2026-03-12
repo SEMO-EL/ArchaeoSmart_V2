@@ -71,25 +71,45 @@
 
   <!-- VOICE CAPTURE SCREEN -->
   <div id="voiceCaptureScreen" class="screen hidden">
-    <h2>Voice Capture</h2>
-    <p class="screen-hint">Speak naturally. Say things like:<br><em>"Ceramic sherd, site Alpha, 40 centimetres depth, good condition, near the east wall"</em></p>
+    <h2>Voice Interview</h2>
+
+    <div class="vi-progress">
+      <div class="vi-progress-bar" id="viProgressBar"></div>
+    </div>
+    <div class="vi-step-label" id="viStepLabel">Ready to begin</div>
+
+    <div class="vi-question-card" id="viQuestionCard">
+      <div class="vi-question-icon" id="viQuestionIcon">⚱</div>
+      <div class="vi-question-text" id="viQuestionText">Press Start to begin the guided recording</div>
+      <div class="vi-example" id="viExample"></div>
+    </div>
+
+    <div class="vi-transcript" id="viTranscript">
+      <span class="vi-transcript-interim" id="viInterim"></span>
+    </div>
+
+    <div class="vi-heard" id="viHeard" style="display:none">
+      <span class="vi-heard-label">Heard:</span>
+      <span id="viHeardText"></span>
+      <div class="vi-heard-actions">
+        <button class="vi-btn-accept" onclick="viAccept()">&#10003; Correct</button>
+        <button class="vi-btn-retry"  onclick="viRetry()">&#8634; Try Again</button>
+        <button class="vi-btn-skip"   onclick="viSkip()">&#8594; Skip</button>
+      </div>
+    </div>
 
     <div class="voice-big-btn-wrap">
-      <button class="voice-big-btn" id="voiceCaptureBtn" onclick="toggleVoiceCapture()">
-        <span id="voiceCaptureIcon">🎤</span>
-        <span id="voiceCaptureLabel">Hold to Speak</span>
+      <button class="voice-big-btn" id="voiceCaptureBtn" onclick="viButtonPressed()">
+        <span id="voiceCaptureIcon">&#9654;</span>
+        <span id="voiceCaptureLabel">Start Interview</span>
       </button>
     </div>
 
-    <div id="voiceTranscript" class="voice-transcript"></div>
+    <div id="viAnswers" class="vi-answers"></div>
 
-    <div id="voiceParsed" class="voice-parsed hidden">
-      <h3>Parsed Fields</h3>
-      <div id="voiceParsedFields"></div>
-      <div class="parsed-actions">
-        <button class="secondaryBtn" onclick="editVoiceParsed()">✎ Edit Before Saving</button>
-        <button class="save" onclick="saveVoiceParsed()">⚱ Save Artifact</button>
-      </div>
+    <div id="viActions" class="parsed-actions" style="display:none">
+      <button class="secondaryBtn" onclick="editVoiceParsed()">&#9998; Review &amp; Edit</button>
+      <button class="save" onclick="saveVoiceParsed()">&#9906; Save Artifact</button>
     </div>
   </div>
 
