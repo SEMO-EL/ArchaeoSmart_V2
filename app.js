@@ -527,10 +527,11 @@ function openDetail(id) {
     if (qrEl && window.QRCode) {
       new QRCode(qrEl, {
         text: a.id,
-        width: 160,
-        height: 160,
-        colorDark: '#1a1207',
-        colorLight: '#f5edd6',
+        width: 220,
+        height: 220,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H,
       });
     }
   }, 50);
@@ -595,25 +596,27 @@ function initMap() {
 // ─── QR Scanner ───────────────────────────────────────────────────────────────
 function startScanner() {
   const result = document.getElementById('scanResult');
-  result.innerHTML = '<em style="color:var(--text-dim)">Initializing scanner…</em>';
+  result.innerHTML = '<em style="color:var(--text-dim)">Starting camera…</em>';
 
   if (html5QrCode) return;
 
   html5QrCode = new Html5Qrcode('qrReader');
+
   html5QrCode.start(
     { facingMode: 'environment' },
-    { fps: 10, qrbox: { width: 250, height: 250 } },
+    { fps: 10, qrbox: 250 },
     decoded => {
-      result.innerHTML = `<strong style="color:var(--gold)">Scanned: ${decoded}</strong>`;
+      result.innerHTML = `<strong style="color:var(--gold)">✓ Scanned: ${decoded}</strong>`;
       const found = artifacts.find(a => a.id === decoded);
       if (found) {
-        setTimeout(() => { openDetail(found.id); }, 300);
+        html5QrCode.stop().then(() => { html5QrCode = null; openDetail(found.id); });
       } else {
         result.innerHTML += `<br><em style="color:var(--text-muted)">No artifact found with this ID.</em>`;
       }
-    },
-    err => {}
-  ).catch(err => {
+    }
+  ).then(() => {
+    result.innerHTML = '<em style="color:var(--text-dim)">📷 Scanner ready — hold QR code steady in the frame</em>';
+  }).catch(err => {
     result.innerHTML = `<span style="color:var(--text-muted)">Camera unavailable: ${err}</span>`;
     html5QrCode = null;
   });
