@@ -15,8 +15,14 @@ let selectedType = null;
 let fieldMode = false;
 let voiceCaptureRecognition = null;
 let voiceParsedData = {};
+let scannerInstance = null;
+
 let mainCanvasPreviewData = null;
 let scrollLockY = 0;
+
+/* interview state guards */
+let viConfirmSessionId = 0;
+let viAnswerSessionId = 0;
 
 /* ── TYPE CONFIG ─────────────────────────────────────────────── */
 const TYPES = [
@@ -72,6 +78,7 @@ function hideAll() {
 
 function showHome() {
   hideAll();
+  stopScanner();
   document.getElementById("homeScreen").classList.remove("hidden");
   updateHomeStats();
   checkBackupReminder();
@@ -151,6 +158,7 @@ function applyFieldMode() {
 /* ── NEW ARTIFACT ────────────────────────────────────────────── */
 function showArtifact() {
   hideAll();
+  stopScanner();
   document.getElementById("artifactScreen").classList.remove("hidden");
   currentID = Date.now();
   selectedCondition = null;
@@ -311,9 +319,64 @@ let viState = {
   finalTranscript: "",
   interimTranscript: "",
   listening: false,
-  tts: null
+  tts: null,
+  confirmRecognition: null,
+  confirmTimeout: null,
+  confirmRetries: 0,
+  awaitingConfirmation: false,
+  _pendingHeard: "",
+  _pendingParsed: null
 };
 
+/* ── interview helpers ──────────────────────────────────────── */
+function viSetMainButton(icon, label, recording = false) {
+  const btn = document.getElementById("voiceCaptureBtn");
+  document.getElementById("voiceCaptureIcon").textContent = icon;
+  document.getElementById("voiceCaptureLabel").textContent = label;
+  btn.classList.toggle("recording", recording);
+}
+
+function viCancelAnswerListening() {
+  viAnswerSessionId++;
+  if (viState.silenceTimer) {
+    clearTimeout(viState.silenceTimer);
+    viState.silenceTimer = null;
+  }
+  if (viState.recognition) {
+    try { viState.recognition.onresult = null; } catch(e){}
+    try { viState.recognition.onerror = null; } catch(e){}
+    try { viState.recognition.onend = null; } catch(e){}
+    try { viState.recognition.stop(); } catch(e){}
+    try { viState.recognition.abort(); } catch(e){}
+    viState.recognition = null;
+  }
+  viState.listening = false;
+}
+
+function viCancelConfirmationListening() {
+  viConfirmSessionId++;
+  if (viState.confirmTimeout) {
+    clearTimeout(viState.confirmTimeout);
+    viState.confirmTimeout = null;
+  }
+  if (viState.confirmRecognition) {
+    try { viState.confirmRecognition.onresult = null; } catch(e){}
+    try { viState.confirmRecognition.onerror = null; } catch(e){}
+    try { viState.confirmRecognition.onend = null; } catch(e){}
+    try { viState.confirmRecognition.stop(); } catch(e){}
+    try { viState.confirmRecognition.abort(); } catch(e){}
+    viState.confirmRecognition = null;
+  }
+  viState.awaitingConfirmation = false;
+  viState.confirmRetries = 0;
+}
+
+function viCancelAllListening() {
+  viCancelAnswerListening();
+  viCancelConfirmationListening();
+}
+
+/* ── TTS helper ──────────────────────────────────────────────── */
 function viSpeak(text, onDone) {
   if (!window.speechSynthesis) { if (onDone) onDone(); return; }
   window.speechSynthesis.cancel();
@@ -332,18 +395,26 @@ function viSpeak(text, onDone) {
   window.speechSynthesis.speak(utt);
 }
 
+/* ── Entry point ─────────────────────────────────────────────── */
 function showVoiceCapture() {
   hideAll();
+  stopScanner();
   document.getElementById("voiceCaptureScreen").classList.remove("hidden");
   viReset();
 }
 
 function viReset() {
-  if (viState.recognition) { try { viState.recognition.abort(); } catch(e){} }
-  if (viState.silenceTimer) clearTimeout(viState.silenceTimer);
+  viCancelAllListening();
   if (window.speechSynthesis) window.speechSynthesis.cancel();
-  viState = { step:-1, answers:{}, recognition:null, silenceTimer:null,
-              finalTranscript:"", interimTranscript:"", listening:false, tts:null };
+
+  viState.step = -1;
+  viState.answers = {};
+  viState.finalTranscript = "";
+  viState.interimTranscript = "";
+  viState.tts = null;
+  viState._pendingHeard = "";
+  viState._pendingParsed = null;
+
   voiceParsedData = {};
 
   document.getElementById("viProgressBar").style.width = "0%";
@@ -355,10 +426,8 @@ function viReset() {
   document.getElementById("viHeard").style.display = "none";
   document.getElementById("viAnswers").innerHTML = "";
   document.getElementById("viActions").style.display = "none";
-  const btn = document.getElementById("voiceCaptureBtn");
-  btn.classList.remove("recording");
-  document.getElementById("voiceCaptureIcon").textContent = "▶";
-  document.getElementById("voiceCaptureLabel").textContent = "Start Interview";
+
+  viSetMainButton("▶", "Start Interview", false);
 }
 
 function viButtonPressed() {
@@ -366,17 +435,22 @@ function viButtonPressed() {
     viStartInterview();
   } else if (viState.listening) {
     viStopListening(true);
+  } else if (viState.awaitingConfirmation) {
+    viListenForConfirmation();
   } else {
     viListenForAnswer();
   }
 }
 
+/* ── Interview flow ──────────────────────────────────────────── */
 function viStartInterview() {
   viState.step = 0;
   viAskStep();
 }
 
 function viAskStep() {
+  viCancelAllListening();
+
   const step = VI_STEPS[viState.step];
   const pct  = (viState.step / VI_STEPS.length) * 100;
 
@@ -387,24 +461,27 @@ function viAskStep() {
   document.getElementById("viExample").textContent       = step.example;
   document.getElementById("viHeard").style.display       = "none";
   document.getElementById("viInterim").textContent       = "";
-  document.getElementById("voiceCaptureIcon").textContent = "🎤";
-  document.getElementById("voiceCaptureLabel").textContent = "Tap to Answer";
+
+  viSetMainButton("🎤", "Waiting for answer", false);
 
   viSpeak(step.question, () => {
     setTimeout(() => viListenForAnswer(), 300);
   });
 }
 
+/* ── Listening for main answer ──────────────────────────────── */
 function viListenForAnswer() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { showToast("Speech recognition not supported"); return; }
 
-  if (viState.recognition) { try { viState.recognition.abort(); } catch(e){} }
+  viCancelAllListening();
   if (window.speechSynthesis) window.speechSynthesis.cancel();
 
   viState.finalTranscript   = "";
   viState.interimTranscript = "";
   viState.listening         = true;
+
+  const sessionId = ++viAnswerSessionId;
 
   const r = new SR();
   r.lang             = "en-US";
@@ -413,12 +490,11 @@ function viListenForAnswer() {
   r.maxAlternatives  = 3;
   viState.recognition = r;
 
-  const btn = document.getElementById("voiceCaptureBtn");
-  btn.classList.add("recording");
-  document.getElementById("voiceCaptureIcon").textContent  = "⏹";
-  document.getElementById("voiceCaptureLabel").textContent = "Listening…";
+  viSetMainButton("⏹", "Listening…", true);
 
   r.onresult = function(e) {
+    if (sessionId !== viAnswerSessionId) return;
+
     let interim = "";
     let final   = viState.finalTranscript;
 
@@ -448,33 +524,41 @@ function viListenForAnswer() {
     if (viState.silenceTimer) clearTimeout(viState.silenceTimer);
     if (final) {
       viState.silenceTimer = setTimeout(() => {
+        if (sessionId !== viAnswerSessionId) return;
         viStopListening(false);
       }, 1800);
     }
   };
 
   r.onspeechend = function() {
+    if (sessionId !== viAnswerSessionId) return;
     if (viState.silenceTimer) clearTimeout(viState.silenceTimer);
     viState.silenceTimer = setTimeout(() => {
+      if (sessionId !== viAnswerSessionId) return;
       viStopListening(false);
     }, 600);
   };
 
   r.onerror = function(e) {
+    if (sessionId !== viAnswerSessionId) return;
+
     if (e.error === "no-speech") {
       viState.listening = false;
-      r.stop();
-      setTimeout(() => { if (viState.step >= 0 && viState.step < VI_STEPS.length) viListenForAnswer(); }, 400);
+      try { r.stop(); } catch(err){}
+      setTimeout(() => {
+        if (sessionId !== viAnswerSessionId) return;
+        if (viState.step >= 0 && viState.step < VI_STEPS.length) viListenForAnswer();
+      }, 400);
       return;
     }
+
     viState.listening = false;
-    btn.classList.remove("recording");
-    document.getElementById("voiceCaptureIcon").textContent  = "🎤";
-    document.getElementById("voiceCaptureLabel").textContent = "Tap to Answer";
+    viSetMainButton("🎤", "Tap to Answer", false);
     showToast("Mic error: " + e.error);
   };
 
   r.onend = function() {
+    if (sessionId !== viAnswerSessionId) return;
     if (viState.listening) {
       try { r.start(); } catch(e) {}
     }
@@ -484,27 +568,51 @@ function viListenForAnswer() {
 }
 
 function viStopListening(force) {
-  if (viState.silenceTimer) clearTimeout(viState.silenceTimer);
-  viState.listening = false;
-
-  if (viState.recognition) {
-    try { viState.recognition.stop(); } catch(e) {}
-    viState.recognition = null;
+  if (viState.silenceTimer) {
+    clearTimeout(viState.silenceTimer);
+    viState.silenceTimer = null;
   }
-
-  const btn = document.getElementById("voiceCaptureBtn");
-  btn.classList.remove("recording");
-  document.getElementById("voiceCaptureIcon").textContent  = "🎤";
-  document.getElementById("voiceCaptureLabel").textContent = "Tap to Answer";
 
   const heard = (viState.finalTranscript || viState.interimTranscript).trim();
 
+  viCancelAnswerListening();
+  viSetMainButton("🎤", "Tap to Answer", false);
+
   if (!heard && !force) {
-    viSpeak("I didn't catch that. Please tap and try again.", null);
+    viSpeak("I didn't catch that. Please answer again.", () => {
+      setTimeout(() => viListenForAnswer(), 300);
+    });
     return;
   }
 
   viShowConfirmation(heard);
+}
+
+/* ── Confirmation ────────────────────────────────────────────── */
+function viParseConfirmationCommand(text) {
+  const t = text.toLowerCase().trim();
+
+  if (
+    t.includes("yes") ||
+    t.includes("correct") ||
+    t.includes("okay") ||
+    t.includes("ok") ||
+    t.includes("confirm")
+  ) return "accept";
+
+  if (
+    t.includes("no") ||
+    t.includes("retry") ||
+    t.includes("again") ||
+    t.includes("repeat")
+  ) return "retry";
+
+  if (
+    t.includes("skip") ||
+    t.includes("next")
+  ) return "skip";
+
+  return null;
 }
 
 function viShowConfirmation(heard) {
@@ -514,20 +622,118 @@ function viShowConfirmation(heard) {
   document.getElementById("viInterim").textContent = "";
   document.getElementById("viHeardText").textContent = heard || "(nothing)";
   document.getElementById("viHeard").style.display = "block";
-  document.getElementById("voiceCaptureIcon").textContent  = "🎤";
-  document.getElementById("voiceCaptureLabel").textContent = "Tap to Answer";
 
   viState._pendingHeard   = heard;
   viState._pendingParsed  = parsed;
+  viState.confirmRetries  = 0;
+  viState.awaitingConfirmation = true;
 
-  const readback = heard ? `I heard: ${heard}. Is that correct?` : "I didn't catch anything. Retry or skip?";
-  viSpeak(readback, null);
+  viSetMainButton("🎙", "Say yes, no, or skip", false);
+
+  const readback = heard
+    ? `I heard: ${heard}. Say yes to confirm, no to try again, or skip.`
+    : "I did not catch anything. Say no to try again, or skip.";
+
+  viSpeak(readback, () => {
+    setTimeout(() => viListenForConfirmation(), 350);
+  });
+}
+
+function viListenForConfirmation() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;
+
+  viCancelConfirmationListening();
+
+  const sessionId = ++viConfirmSessionId;
+
+  const r = new SR();
+  r.lang = "en-US";
+  r.continuous = false;
+  r.interimResults = false;
+  r.maxAlternatives = 3;
+  viState.confirmRecognition = r;
+  viState.awaitingConfirmation = true;
+
+  viSetMainButton("🎙", "Say yes, no, or skip", false);
+
+  r.onresult = function(e) {
+    if (sessionId !== viConfirmSessionId) return;
+    let heard = "";
+    if (e.results && e.results[0] && e.results[0][0]) {
+      heard = e.results[0][0].transcript || "";
+    }
+    const action = viParseConfirmationCommand(heard);
+
+    if (action === "accept") {
+      viAccept();
+      return;
+    }
+    if (action === "retry") {
+      viRetry();
+      return;
+    }
+    if (action === "skip") {
+      viSkip();
+      return;
+    }
+
+    viHandleConfirmationMiss(sessionId);
+  };
+
+  r.onerror = function() {
+    if (sessionId !== viConfirmSessionId) return;
+    viHandleConfirmationMiss(sessionId);
+  };
+
+  r.onend = function() {
+    // no-op; handled by timeout/result/error
+  };
+
+  viState.confirmTimeout = setTimeout(() => {
+    if (sessionId !== viConfirmSessionId) return;
+    try { r.stop(); } catch(e) {}
+    viHandleConfirmationMiss(sessionId);
+  }, 4500);
+
+  try { r.start(); } catch(e) {}
+}
+
+function viHandleConfirmationMiss(sessionId) {
+  if (sessionId !== viConfirmSessionId) return;
+
+  if (viState.confirmTimeout) {
+    clearTimeout(viState.confirmTimeout);
+    viState.confirmTimeout = null;
+  }
+
+  if (viState.confirmRecognition) {
+    try { viState.confirmRecognition.abort(); } catch(e){}
+    viState.confirmRecognition = null;
+  }
+
+  viState.awaitingConfirmation = true;
+  viState.confirmRetries++;
+
+  if (viState.confirmRetries <= 1) {
+    viSetMainButton("🎙", "Say yes, no, or skip", false);
+    viSpeak("Please say yes, no, or skip.", () => {
+      setTimeout(() => viListenForConfirmation(), 300);
+    });
+  } else {
+    viSetMainButton("🎙", "Say yes, no, or skip", false);
+    showToast("Say yes, no, or skip");
+  }
 }
 
 function viAccept() {
   if (window.speechSynthesis) window.speechSynthesis.cancel();
+  viCancelConfirmationListening();
+
   const step   = VI_STEPS[viState.step];
-  const parsed = viState._pendingParsed || viState._pendingHeard;
+  const parsed = (viState._pendingParsed !== null && viState._pendingParsed !== undefined)
+    ? viState._pendingParsed
+    : viState._pendingHeard;
 
   if (parsed !== null && parsed !== undefined) {
     viState.answers[step.key] = parsed;
@@ -540,9 +746,14 @@ function viAccept() {
 
 function viRetry() {
   if (window.speechSynthesis) window.speechSynthesis.cancel();
+  viCancelConfirmationListening();
+
   document.getElementById("viHeard").style.display = "none";
   viState.finalTranscript   = "";
   viState.interimTranscript = "";
+
+  viSetMainButton("🎤", "Waiting for answer", false);
+
   viSpeak(VI_STEPS[viState.step].question, () => {
     setTimeout(() => viListenForAnswer(), 300);
   });
@@ -550,6 +761,8 @@ function viRetry() {
 
 function viSkip() {
   if (window.speechSynthesis) window.speechSynthesis.cancel();
+  viCancelConfirmationListening();
+
   document.getElementById("viHeard").style.display = "none";
   viNextStep();
 }
@@ -563,6 +776,7 @@ function viNextStep() {
   }
 }
 
+/* ── Render collected answers ────────────────────────────────── */
 function viRenderAnswers() {
   const labels = {site:"Site",type:"Type",context:"Context",depth:"Depth (cm)",condition:"Condition",notes:"Notes"};
   const container = document.getElementById("viAnswers");
@@ -574,14 +788,16 @@ function viRenderAnswers() {
   `).join("");
 }
 
+/* ── Finish ──────────────────────────────────────────────────── */
 function viFinish() {
+  viCancelAllListening();
+
   document.getElementById("viProgressBar").style.width = "100%";
   document.getElementById("viStepLabel").textContent = "Interview complete";
   document.getElementById("viQuestionIcon").textContent = "⚱";
   document.getElementById("viQuestionText").textContent = "All fields recorded. Review below and save.";
   document.getElementById("viExample").textContent = "";
-  document.getElementById("voiceCaptureIcon").textContent  = "↺";
-  document.getElementById("voiceCaptureLabel").textContent = "Start Over";
+  viSetMainButton("↺", "Start Over", false);
   document.getElementById("viActions").style.display = "flex";
   document.getElementById("viActions").style.flexDirection = "column";
   document.getElementById("viActions").style.gap = "8px";
@@ -594,6 +810,65 @@ function viFinish() {
 
 /* ── Old single-shot toggle (kept for compatibility fallback) ── */
 function toggleVoiceCapture() { viButtonPressed(); }
+
+/* ── Parsed voice save/edit ──────────────────────────────────── */
+function editVoiceParsed() {
+  if (!voiceParsedData || Object.keys(voiceParsedData).length === 0) {
+    showToast("No parsed voice data to edit");
+    return;
+  }
+
+  showArtifact();
+
+  document.getElementById("site").value = voiceParsedData.site || "";
+  document.getElementById("context").value = voiceParsedData.context || "";
+  document.getElementById("depth").value = voiceParsedData.depth || "";
+  document.getElementById("notes").value = voiceParsedData.notes || "";
+  document.getElementById("voiceText").value = voiceParsedData.rawVoice || "";
+
+  if (voiceParsedData.type) {
+    selectType(voiceParsedData.type);
+  }
+
+  if (voiceParsedData.condition) {
+    setCondition(parseInt(voiceParsedData.condition, 10));
+  }
+
+  showToast("Parsed interview moved into artifact form");
+}
+
+function saveVoiceParsed() {
+  if (!voiceParsedData || Object.keys(voiceParsedData).length === 0) {
+    showToast("No voice interview data to save");
+    return;
+  }
+
+  currentID = Date.now();
+
+  let artifact = {
+    id: currentID,
+    site: voiceParsedData.site || "",
+    type: voiceParsedData.type || "",
+    context: voiceParsedData.context || "",
+    depth: voiceParsedData.depth || "",
+    condition: voiceParsedData.condition || null,
+    notes: voiceParsedData.notes || "",
+    voice: voiceParsedData.rawVoice || "",
+    audio: null,
+    gps: "Not recorded",
+    lat: null,
+    lng: null,
+    date: new Date().toLocaleString(),
+    photo: "",
+    drawing: "",
+    savedAt: new Date().toISOString()
+  };
+
+  artifacts.push(artifact);
+  localStorage.setItem("artifacts", JSON.stringify(artifacts));
+  showToast("⚱ Voice interview saved successfully");
+  showHome();
+}
 
 /* ── DATABASE ────────────────────────────────────────────────── */
 function showDatabase() {
@@ -643,6 +918,7 @@ function searchArtifact() {
 /* ── DETAIL ──────────────────────────────────────────────────── */
 function showDetail(id) {
   hideAll();
+  stopScanner();
   document.getElementById("detailScreen").classList.remove("hidden");
   let a = artifacts.find(x => x.id === id);
   if (!a) return;
@@ -689,6 +965,7 @@ function deleteArtifact(id) {
 /* ── STATISTICS ──────────────────────────────────────────────── */
 function showStats() {
   hideAll();
+  stopScanner();
   document.getElementById("statsScreen").classList.remove("hidden");
   const typeCounts = {};
   const siteCounts = {};
@@ -861,11 +1138,8 @@ function renderMainCanvasPreview() {
 }
 
 function containSize(srcW, srcH, maxW, maxH) {
-  const ratio = Math.min(maxW / srcW, maxH / srcH);
-  return {
-    w: srcW * ratio,
-    h: srcH * ratio
-  };
+  const scale = Math.min(maxW / srcW, maxH / srcH);
+  return { w: srcW * scale, h: srcH * scale };
 }
 
 function enableDrawing(canvas, allowDrawing) {
@@ -885,14 +1159,14 @@ function enableDrawing(canvas, allowDrawing) {
     drawing = true;
     const p = getPos(e);
     ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
+    ctx.moveTo(p.x,p.y);
   }
 
   function draw(e) {
     if (!allowDrawing || !drawing) return;
     e.preventDefault();
     const p = getPos(e);
-    ctx.lineTo(p.x, p.y);
+    ctx.lineTo(p.x,p.y);
     ctx.strokeStyle = currentColor;
     ctx.lineWidth = currentBrush;
     ctx.globalAlpha = currentOpacity;
@@ -912,7 +1186,6 @@ function enableDrawing(canvas, allowDrawing) {
   canvas.addEventListener("mousemove", draw);
   canvas.addEventListener("mouseup", stop);
   canvas.addEventListener("mouseleave", stop);
-
   canvas.addEventListener("touchstart", start, {passive:false});
   canvas.addEventListener("touchmove", draw, {passive:false});
   canvas.addEventListener("touchend", stop);
@@ -920,7 +1193,9 @@ function enableDrawing(canvas, allowDrawing) {
 
 function clearCanvas() {
   mainCanvasPreviewData = null;
-  renderMainCanvasPreview();
+  const c = document.getElementById("canvas");
+  const ctx = c.getContext("2d");
+  ctx.clearRect(0,0,c.width,c.height);
 }
 
 function clearCanvasFull() {
@@ -978,29 +1253,43 @@ function closeCanvasFullscreen() {
   renderMainCanvasPreview();
 }
 
-/* ── QR SCANNER (ORIGINAL WORKING VERSION) ───────────────────── */
+/* ── QR SCANNER ──────────────────────────────────────────────── */
 function startScanner() {
   hideAll();
   document.getElementById("scannerScreen").classList.remove("hidden");
-  const html5QrCode = new Html5Qrcode("reader");
-  html5QrCode.start(
+
+  if (scannerInstance) {
+    stopScanner();
+  }
+
+  scannerInstance = new Html5Qrcode("reader");
+  scannerInstance.start(
     {facingMode:"environment"},
     {fps:10, qrbox:250},
     msg => {
       let artifact = artifacts.find(a => a.id.toString() === msg);
       if (artifact) { showDetail(artifact.id); }
       else { showToast("QR scanned — artifact not found"); }
-      html5QrCode.stop();
+      stopScanner();
     }
   ).catch(err => {
-    console.error("QR scanner error:", err);
-    showToast("Unable to start QR scanner");
+    console.error("Scanner error:", err);
+    showToast("Unable to start scanner");
   });
+}
+
+function stopScanner() {
+  if (scannerInstance) {
+    scannerInstance.stop().catch(()=>{}).finally(() => {
+      scannerInstance = null;
+    });
+  }
 }
 
 /* ── MAP ─────────────────────────────────────────────────────── */
 function showMap() {
   hideAll();
+  stopScanner();
   document.getElementById("mapScreen").classList.remove("hidden");
   if (mapInstance) { mapInstance.remove(); }
   mapInstance = L.map("map").setView([31.63,-8], 6);
@@ -1016,27 +1305,23 @@ function showMap() {
 
 /* ── RESIZE ──────────────────────────────────────────────────── */
 window.addEventListener("resize", () => {
-  const fsVisible = !document.getElementById("canvasFullscreen").classList.contains("hidden");
-  if (fsVisible) {
-    const c = document.getElementById("canvasFull");
-    if (c) {
-      resizeCanvas(c);
-      const ctx = c.getContext("2d");
-      const rect = c.getBoundingClientRect();
-      ctx.clearRect(0, 0, rect.width, rect.height);
-      if (mainCanvasPreviewData) {
-        const img = new Image();
-        img.onload = function() {
-          const fit = containSize(img.width, img.height, rect.width, rect.height);
-          const dx = (rect.width - fit.w) / 2;
-          const dy = (rect.height - fit.h) / 2;
-          ctx.drawImage(img, dx, dy, fit.w, fit.h);
-        };
-        img.src = mainCanvasPreviewData;
-      }
+  const c = document.getElementById("canvasFull");
+  if (c && !document.getElementById("canvasFullscreen").classList.contains("hidden")) {
+    resizeCanvas(c);
+    const ctx = c.getContext("2d");
+    const rect = c.getBoundingClientRect();
+    ctx.clearRect(0, 0, rect.width, rect.height);
+
+    if (mainCanvasPreviewData) {
+      const img = new Image();
+      img.onload = function() {
+        const fit = containSize(img.width, img.height, rect.width, rect.height);
+        const dx = (rect.width - fit.w) / 2;
+        const dy = (rect.height - fit.h) / 2;
+        ctx.drawImage(img, dx, dy, fit.w, fit.h);
+      };
+      img.src = mainCanvasPreviewData;
     }
-  } else {
-    renderMainCanvasPreview();
   }
 });
 
