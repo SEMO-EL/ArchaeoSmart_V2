@@ -201,7 +201,7 @@
       <div class="drawingControls">
         <label>Brush <input type="range" min="1" max="20" value="3" oninput="currentBrush=this.value"></label>
         <label>Opacity <input type="range" min="0.1" max="1" step="0.1" value="1" oninput="currentOpacity=this.value"></label>
-        <label>Color <input type="color" oninput="currentColor=this.value"></label>
+        <label>Color <input type="color" value="#3d2b1f" oninput="currentColor=this.value"></label>
       </div>
       <canvas id="canvas"></canvas>
       <div style="display:flex;gap:8px;margin-top:8px">
@@ -258,7 +258,7 @@
     <div class="fs-toolbar">
       <label>Brush <input type="range" min="1" max="30" value="3" oninput="currentBrush=this.value"></label>
       <label>Opacity <input type="range" min="0.1" max="1" step="0.1" value="1" oninput="currentOpacity=this.value"></label>
-      <label>Color <input type="color" oninput="currentColor=this.value"></label>
+      <label>Color <input type="color" value="#3d2b1f" oninput="currentColor=this.value"></label>
       <button onclick="clearCanvasFull()">✕ Clear</button>
       <button onclick="closeCanvasFullscreen()">✓ Done</button>
     </div>
