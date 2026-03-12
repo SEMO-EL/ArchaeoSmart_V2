@@ -1,698 +1,684 @@
-/* ArchaeoSmart — app.js */
-'use strict';
+/* ArchaeoSmart v3 — app.js */
 
-// ─── State ───────────────────────────────────────────────────────────────────
-let artifacts = [];
-let currentArtifact = null;
-
-// Drawing
-let drawCtx, drawCanvas;
-let fsCtx, fsCanvas;
-let isDrawing = false;
-let lastX = 0, lastY = 0;
-
-// Map
-let map = null;
-let mapMarkers = [];
-
-// Voice
-let mediaRecorder = null;
+let artifacts = JSON.parse(localStorage.getItem("artifacts")) || [];
+let currentID = null;
+let audioRecorder;
 let audioChunks = [];
-let audioBlob = null;
-let voiceRecording = false;
-
-// Speech recognition
+let audioData = null;
+let currentBrush = 3;
+let currentOpacity = 1;
+let currentColor = "#3d2b1f";
 let recognition = null;
+let mapInstance = null;
+let selectedCondition = null;
+let selectedType = null;
+let fieldMode = false;
+let voiceCaptureRecognition = null;
+let voiceParsedData = {};
 
-// QR Scanner
-let html5QrCode = null;
+/* ── TYPE CONFIG ─────────────────────────────────────────────── */
+const TYPES = [
+  {label:"Ceramic",  icon:"🏺"},
+  {label:"Lithic",   icon:"🪨"},
+  {label:"Bone",     icon:"🦴"},
+  {label:"Metal",    icon:"⚙"},
+  {label:"Glass",    icon:"💠"},
+  {label:"Organic",  icon:"🌿"},
+  {label:"Coin",     icon:"🪙"},
+  {label:"Inscript.",icon:"📜"},
+  {label:"Figurine", icon:"🗿"},
+  {label:"Arch.",    icon:"🧱"},
+  {label:"Other",    icon:"❓"},
+];
 
-// PWA
-let deferredPrompt = null;
-
-// ─── Init ─────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  loadArtifacts();
-  setupNav();
+/* ── INIT ────────────────────────────────────────────────────── */
+window.addEventListener("DOMContentLoaded", () => {
+  buildTypeGrid();
   setupBackground();
-  setupDrawCanvas();
-  setupDate();
-  updateStats();
-  setupPWA();
-  registerServiceWorker();
-  createToast();
+  updateHomeStats();
+  checkBackupReminder();
+  restoreFieldMode();
+  setupPhoto();
+  enableDrawing(document.getElementById("canvas"));
+  enableDrawing(document.getElementById("canvasFull"));
 });
 
-function setupDate() {
-  const d = document.getElementById('fDate');
-  if (d) d.value = new Date().toISOString().split('T')[0];
+function setupPhoto() {
+  document.getElementById("photo").onchange = function(e) {
+    if (!e.target.files[0]) return;
+    let reader = new FileReader();
+    reader.onload = function() {
+      const img = document.getElementById("preview");
+      img.src = reader.result;
+      img.style.display = "block";
+    };
+    reader.readAsDataURL(e.target.files[0]);
+  };
 }
 
-// ─── Background Floating Icons ─────────────────────────────────────────────
+/* ── BACKGROUND ──────────────────────────────────────────────── */
 function setupBackground() {
-  const icons = ['💀','🦷','🦴','⚱','🏺','🪨','🔍','📜','⛏','🧪'];
-  const bg = document.getElementById('bgLayer');
+  const bgLayer = document.getElementById("bgLayer");
+  if (!bgLayer) return;
+  const bones = ["🦴","💀","🦷","⚱","🏺","🪨","📜","⛏"];
   for (let i = 0; i < 20; i++) {
-    const el = document.createElement('div');
-    el.className = 'bg-icon';
-    el.textContent = icons[Math.floor(Math.random() * icons.length)];
-    el.style.left = Math.random() * 100 + '%';
-    el.style.animationDuration = (12 + Math.random() * 20) + 's';
-    el.style.animationDelay = -(Math.random() * 30) + 's';
-    el.style.fontSize = (1.2 + Math.random() * 1.5) + 'rem';
-    bg.appendChild(el);
+    let el = document.createElement("div");
+    el.className = "bgBone";
+    el.innerText = bones[Math.floor(Math.random() * bones.length)];
+    el.style.left = Math.random() * 100 + "vw";
+    el.style.animationDuration = 20 + Math.random() * 30 + "s";
+    el.style.animationDelay = -(Math.random() * 30) + "s";
+    el.style.fontSize = 24 + Math.random() * 36 + "px";
+    bgLayer.appendChild(el);
   }
 }
 
-// ─── Navigation ───────────────────────────────────────────────────────────────
-function setupNav() {
-  document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      goToScreen(btn.dataset.screen);
-    });
-  });
+/* ── SCREENS ─────────────────────────────────────────────────── */
+function hideAll() {
+  document.querySelectorAll(
+    "#homeScreen,#artifactScreen,#databaseScreen,#detailScreen,#mapScreen,#scannerScreen,#statsScreen,#voiceCaptureScreen"
+  ).forEach(e => e.classList.add("hidden"));
 }
 
-function goToScreen(name) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.screen === name);
-  });
-  const s = document.getElementById('screen-' + name);
-  if (s) s.classList.add('active');
-
-  if (name === 'map') initMap();
-  if (name === 'database') renderArtifacts();
-  if (name === 'scan') startScanner();
-  if (name !== 'scan') stopScanner();
+function showHome() {
+  hideAll();
+  document.getElementById("homeScreen").classList.remove("hidden");
+  updateHomeStats();
+  checkBackupReminder();
 }
 
-// ─── LocalStorage ─────────────────────────────────────────────────────────────
-function loadArtifacts() {
-  try {
-    const raw = localStorage.getItem('archaeosmart_artifacts');
-    artifacts = raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    artifacts = [];
-  }
-}
-
-function saveArtifacts() {
-  localStorage.setItem('archaeosmart_artifacts', JSON.stringify(artifacts));
-}
-
-// ─── Stats ────────────────────────────────────────────────────────────────────
-function updateStats() {
-  const total = artifacts.length;
+/* ── HOME STATS ──────────────────────────────────────────────── */
+function updateHomeStats() {
+  const today = new Date().toDateString();
+  const todayCount = artifacts.filter(a => new Date(a.savedAt || 0).toDateString() === today).length;
   const sites = new Set(artifacts.map(a => a.site).filter(Boolean)).size;
-  const gps = artifacts.filter(a => a.lat && a.lng).length;
-
-  document.getElementById('statTotal').textContent = total;
-  document.getElementById('statSites').textContent = sites;
-  document.getElementById('statGPS').textContent = gps;
-  document.getElementById('dbCount').textContent = `${total} artifact${total !== 1 ? 's' : ''} recorded`;
+  const geoCount = artifacts.filter(a => a.lat && a.lng).length;
+  document.getElementById("statTotal").textContent = artifacts.length;
+  document.getElementById("statSites").textContent = sites;
+  document.getElementById("statToday").textContent = todayCount;
+  document.getElementById("statGPS").textContent = geoCount;
 }
 
-// ─── GPS ─────────────────────────────────────────────────────────────────────
-function captureGPS() {
-  const btn = document.getElementById('gpsBtn');
-  const status = document.getElementById('gpsStatus');
-  if (!navigator.geolocation) {
-    status.textContent = 'Geolocation not supported on this device.';
+function checkBackupReminder() {
+  const bar = document.getElementById("backupBar");
+  const lastExport = parseInt(localStorage.getItem("lastExportCount") || "0");
+  const diff = artifacts.length - lastExport;
+  if (diff >= 5) {
+    document.getElementById("backupMsg").textContent = `⚠ ${diff} artifacts since last export`;
+    bar.style.display = "flex";
+  } else {
+    bar.style.display = "none";
+  }
+}
+
+/* ── TYPE GRID ───────────────────────────────────────────────── */
+function buildTypeGrid() {
+  const grid = document.getElementById("typeGrid");
+  if (!grid) return;
+  grid.innerHTML = TYPES.map(t => `
+    <button class="type-btn" data-label="${t.label}" onclick="selectType('${t.label}')">
+      <span>${t.icon}</span>${t.label}
+    </button>
+  `).join("");
+}
+
+function selectType(label) {
+  selectedType = label;
+  document.querySelectorAll(".type-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.label === label);
+  });
+  document.getElementById("type").value = label;
+}
+
+/* ── CONDITION ───────────────────────────────────────────────── */
+function setCondition(v) {
+  selectedCondition = v;
+  document.getElementById("condition").value = v;
+  document.querySelectorAll(".cond-btn").forEach(b => {
+    const bv = parseInt(b.dataset.v);
+    b.classList.toggle("active", bv <= v);
+  });
+}
+
+/* ── FIELD MODE ──────────────────────────────────────────────── */
+function toggleFieldMode() {
+  fieldMode = !fieldMode;
+  applyFieldMode();
+  localStorage.setItem("fieldMode", fieldMode ? "1" : "0");
+}
+
+function restoreFieldMode() {
+  fieldMode = localStorage.getItem("fieldMode") === "1";
+  applyFieldMode();
+}
+
+function applyFieldMode() {
+  document.body.classList.toggle("field-mode", fieldMode);
+  const btn = document.getElementById("fieldModeBtn");
+  if (btn) btn.textContent = fieldMode ? "☾" : "☀";
+}
+
+/* ── NEW ARTIFACT ────────────────────────────────────────────── */
+function showArtifact() {
+  hideAll();
+  document.getElementById("artifactScreen").classList.remove("hidden");
+  currentID = Date.now();
+  selectedCondition = null;
+  selectedType = null;
+  document.getElementById("date").innerText = new Date().toLocaleString();
+  document.getElementById("qrcode").innerHTML = "";
+  new QRCode(document.getElementById("qrcode"), currentID.toString());
+  document.querySelectorAll(".type-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".cond-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById("condition").value = "";
+  document.getElementById("type").value = "";
+  document.getElementById("preview").style.display = "none";
+}
+
+/* ── SAVE ARTIFACT ───────────────────────────────────────────── */
+function saveArtifact() {
+  let photo = document.getElementById("preview").src || "";
+  if (photo === window.location.href) photo = "";
+  let drawing = document.getElementById("canvas").toDataURL("image/png");
+  let gps = document.getElementById("gps").innerText;
+  let lat = null, lng = null;
+  if (gps.includes(",")) {
+    let p = gps.split(",");
+    lat = parseFloat(p[0]);
+    lng = parseFloat(p[1]);
+  }
+  const typeVal = selectedType || document.getElementById("type").value;
+  let artifact = {
+    id: currentID,
+    site: document.getElementById("site").value,
+    type: typeVal,
+    context: document.getElementById("context").value,
+    depth: document.getElementById("depth").value,
+    condition: selectedCondition,
+    notes: document.getElementById("notes").value,
+    voice: document.getElementById("voiceText").value,
+    audio: audioData,
+    gps: gps,
+    lat: lat,
+    lng: lng,
+    date: document.getElementById("date").innerText,
+    photo: photo,
+    drawing: drawing,
+    savedAt: new Date().toISOString()
+  };
+  artifacts.push(artifact);
+  localStorage.setItem("artifacts", JSON.stringify(artifacts));
+  audioData = null;
+  showToast("⚱ Artifact saved successfully");
+  showHome();
+}
+
+/* ── VOICE CAPTURE (HANDS-FREE) ──────────────────────────────── */
+function showVoiceCapture() {
+  hideAll();
+  document.getElementById("voiceCaptureScreen").classList.remove("hidden");
+  document.getElementById("voiceTranscript").textContent = "";
+  document.getElementById("voiceParsed").classList.add("hidden");
+}
+
+function toggleVoiceCapture() {
+  const btn = document.getElementById("voiceCaptureBtn");
+  const icon = document.getElementById("voiceCaptureIcon");
+  const label = document.getElementById("voiceCaptureLabel");
+
+  if (voiceCaptureRecognition) {
+    voiceCaptureRecognition.stop();
+    voiceCaptureRecognition = null;
+    btn.classList.remove("recording");
+    icon.textContent = "🎤";
+    label.textContent = "Hold to Speak";
     return;
   }
-  btn.textContent = '⌛ Acquiring…';
-  btn.disabled = true;
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    showToast("Speech recognition not supported in this browser");
+    return;
+  }
+
+  voiceCaptureRecognition = new SR();
+  voiceCaptureRecognition.lang = "en-US";
+  voiceCaptureRecognition.continuous = true;
+  voiceCaptureRecognition.interimResults = true;
+
+  voiceCaptureRecognition.onresult = function(e) {
+    const transcript = Array.from(e.results).map(r => r[0].transcript).join(" ");
+    document.getElementById("voiceTranscript").textContent = transcript;
+  };
+
+  voiceCaptureRecognition.onend = function() {
+    btn.classList.remove("recording");
+    icon.textContent = "🎤";
+    label.textContent = "Hold to Speak";
+    const transcript = document.getElementById("voiceTranscript").textContent;
+    if (transcript.trim().length > 3) parseVoiceCapture(transcript);
+    voiceCaptureRecognition = null;
+  };
+
+  voiceCaptureRecognition.start();
+  btn.classList.add("recording");
+  icon.textContent = "⏹";
+  label.textContent = "Tap to Stop";
+}
+
+function parseVoiceCapture(text) {
+  const t = text.toLowerCase();
+  const parsed = { rawVoice: text };
+
+  // Site
+  const siteMatch = t.match(/site\s+([a-z0-9\s]+?)(?:\s*,|\s+depth|\s+layer|\s+context|$)/);
+  if (siteMatch) parsed.site = siteMatch[1].trim();
+
+  // Type
+  const typeMap = {
+    "ceramic":"Ceramic / Pottery","pottery":"Ceramic / Pottery","sherd":"Ceramic / Pottery",
+    "lithic":"Lithic / Stone Tool","stone":"Lithic / Stone Tool","flint":"Lithic / Stone Tool",
+    "bone":"Bone / Faunal","faunal":"Bone / Faunal",
+    "metal":"Metal Object","iron":"Metal Object","bronze":"Metal Object","copper":"Metal Object",
+    "glass":"Glass",
+    "organic":"Organic Material","wood":"Organic Material","charcoal":"Organic Material",
+    "coin":"Coin / Currency","currency":"Coin / Currency",
+    "inscription":"Inscription","tablet":"Inscription",
+    "figurine":"Figurine","statuette":"Figurine",
+    "architectural":"Architectural","brick":"Architectural","tile":"Architectural",
+  };
+  for (const [key, val] of Object.entries(typeMap)) {
+    if (t.includes(key)) { parsed.type = val; break; }
+  }
+
+  // Depth
+  const depthMatch = t.match(/(\d+)\s*(?:centimetres?|centimeters?|cm|centim)/);
+  if (depthMatch) parsed.depth = depthMatch[1];
+
+  // Condition
+  const condMap = {"excellent":5,"very good":4,"good":3,"fair":2,"poor":1,"bad":1};
+  for (const [key, val] of Object.entries(condMap)) {
+    if (t.includes(key)) { parsed.condition = val; break; }
+  }
+
+  // Context / layer
+  const layerMatch = t.match(/(?:layer|context|stratum|level)\s+([a-z0-9\s]+?)(?:\s*,|$)/);
+  if (layerMatch) parsed.context = layerMatch[1].trim();
+
+  voiceParsedData = parsed;
+
+  // Show parsed results
+  const parsedDiv = document.getElementById("voiceParsed");
+  const fieldsDiv = document.getElementById("voiceParsedFields");
+  const labels = {site:"Site",type:"Type",depth:"Depth (cm)",condition:"Condition",context:"Context",rawVoice:"Voice Note"};
+  fieldsDiv.innerHTML = Object.entries(parsed).map(([k,v]) => `
+    <div class="parsed-field">
+      <span class="parsed-label">${labels[k]||k}</span>
+      <span class="parsed-value">${k==="condition" ? "★".repeat(v)+"☆".repeat(5-v) : v}</span>
+    </div>
+  `).join("");
+  parsedDiv.classList.remove("hidden");
+}
+
+function saveVoiceParsed() {
+  currentID = Date.now();
+  const gps = "Not recorded";
+  let artifact = {
+    id: currentID,
+    site: voiceParsedData.site || "",
+    type: voiceParsedData.type || "",
+    context: voiceParsedData.context || "",
+    depth: voiceParsedData.depth || "",
+    condition: voiceParsedData.condition || null,
+    notes: "",
+    voice: voiceParsedData.rawVoice || "",
+    audio: null,
+    gps: gps,
+    lat: null,
+    lng: null,
+    date: new Date().toLocaleString(),
+    photo: "",
+    drawing: "",
+    savedAt: new Date().toISOString()
+  };
+  artifacts.push(artifact);
+  localStorage.setItem("artifacts", JSON.stringify(artifacts));
+  showToast("⚱ Voice artifact saved");
+  showHome();
+}
+
+function editVoiceParsed() {
+  showArtifact();
+  if (voiceParsedData.site) document.getElementById("site").value = voiceParsedData.site;
+  if (voiceParsedData.type) selectType(voiceParsedData.type);
+  if (voiceParsedData.depth) document.getElementById("depth").value = voiceParsedData.depth;
+  if (voiceParsedData.context) document.getElementById("context").value = voiceParsedData.context;
+  if (voiceParsedData.condition) setCondition(voiceParsedData.condition);
+  if (voiceParsedData.rawVoice) document.getElementById("voiceText").value = voiceParsedData.rawVoice;
+}
+
+/* ── DATABASE ────────────────────────────────────────────────── */
+function showDatabase() {
+  hideAll();
+  document.getElementById("databaseScreen").classList.remove("hidden");
+  renderDatabase(artifacts);
+}
+
+function renderDatabase(list) {
+  let container = document.getElementById("artifactList");
+  if (!list.length) {
+    container.innerHTML = `<div class="empty-state">No artifacts found</div>`;
+    return;
+  }
+  const typeIcons = {"Ceramic / Pottery":"🏺","Lithic / Stone Tool":"🪨","Bone / Faunal":"🦴","Metal Object":"⚙","Glass":"💠","Organic Material":"🌿","Coin / Currency":"🪙","Inscription":"📜","Figurine":"🗿","Architectural":"🧱"};
+  container.innerHTML = list.map(a => `
+    <div class="artifactCard" onclick="showDetail(${a.id})">
+      <span class="card-icon">${typeIcons[a.type]||"⚱"}</span>
+      <div class="card-info">
+        <div class="card-type">${a.type || "Unknown type"}</div>
+        <div class="card-meta">${a.site||"No site"} ${a.depth ? "· "+a.depth+"cm" : ""} ${a.context ? "· "+a.context : ""}</div>
+        <div class="card-date">${a.date||""}</div>
+      </div>
+      <div class="card-badges">
+        ${a.lat ? '<span class="badge">📍</span>' : ''}
+        ${a.photo ? '<span class="badge">📷</span>' : ''}
+        ${a.audio ? '<span class="badge">🎙</span>' : ''}
+        ${a.condition ? '<span class="badge">★'+a.condition+'</span>' : ''}
+      </div>
+    </div>
+  `).join("");
+}
+
+function searchArtifact() {
+  const q = document.getElementById("searchID").value.toLowerCase();
+  const results = artifacts.filter(a =>
+    !q ||
+    (a.id && a.id.toString().includes(q)) ||
+    (a.site && a.site.toLowerCase().includes(q)) ||
+    (a.type && a.type.toLowerCase().includes(q)) ||
+    (a.context && a.context.toLowerCase().includes(q)) ||
+    (a.notes && a.notes.toLowerCase().includes(q))
+  );
+  renderDatabase(results);
+}
+
+/* ── DETAIL ──────────────────────────────────────────────────── */
+function showDetail(id) {
+  hideAll();
+  document.getElementById("detailScreen").classList.remove("hidden");
+  let a = artifacts.find(x => x.id === id);
+  const condStars = a.condition ? "★".repeat(a.condition)+"☆".repeat(5-a.condition) : "Not rated";
+  document.getElementById("artifactDetail").innerHTML = `
+    <div class="detailCard">
+      <div class="detail-id">ID: ${a.id}</div>
+      <div class="detail-type">${a.type || "Unknown type"}</div>
+      <div class="detail-site">${a.site || "Unknown site"}</div>
+
+      <div class="detail-fields">
+        ${a.context ? `<div class="detail-row"><b>Context</b><span>${a.context}</span></div>` : ""}
+        ${a.depth ? `<div class="detail-row"><b>Depth</b><span>${a.depth} cm</span></div>` : ""}
+        ${a.condition ? `<div class="detail-row"><b>Condition</b><span class="stars">${condStars}</span></div>` : ""}
+        <div class="detail-row"><b>GPS</b><span>${a.gps}</span></div>
+        <div class="detail-row"><b>Date</b><span>${a.date}</span></div>
+      </div>
+
+      <h3>QR Code</h3>
+      <div id="detailQR"></div>
+
+      ${a.notes ? `<h3>Notes</h3><p class="detail-text">${a.notes}</p>` : ""}
+      ${a.voice ? `<h3>Voice Notes</h3><p class="detail-text">${a.voice}</p>` : ""}
+      ${a.audio ? `<h3>Voice Memo</h3><audio controls src="${a.audio}"></audio>` : ""}
+      ${a.photo ? `<h3>Photo</h3><img src="${a.photo}">` : ""}
+      ${a.drawing ? `<h3>Drawing</h3><img src="${a.drawing}" style="background:white">` : ""}
+
+      <div class="detail-actions">
+        <button class="secondaryBtn danger" onclick="deleteArtifact(${a.id})">🗑 Delete</button>
+      </div>
+    </div>
+  `;
+  new QRCode(document.getElementById("detailQR"), id.toString());
+}
+
+function deleteArtifact(id) {
+  if (!confirm("Delete this artifact? This cannot be undone.")) return;
+  artifacts = artifacts.filter(a => a.id !== id);
+  localStorage.setItem("artifacts", JSON.stringify(artifacts));
+  showToast("Artifact deleted");
+  showDatabase();
+}
+
+/* ── STATISTICS ──────────────────────────────────────────────── */
+function showStats() {
+  hideAll();
+  document.getElementById("statsScreen").classList.remove("hidden");
+  const typeCounts = {};
+  const siteCounts = {};
+  artifacts.forEach(a => {
+    if (a.type) typeCounts[a.type] = (typeCounts[a.type]||0)+1;
+    if (a.site) siteCounts[a.site] = (siteCounts[a.site]||0)+1;
+  });
+  const maxType = Math.max(...Object.values(typeCounts), 1);
+  const maxSite = Math.max(...Object.values(siteCounts), 1);
+
+  document.getElementById("statsContent").innerHTML = `
+    <div class="stats-card">
+      <h3>By Type</h3>
+      ${Object.entries(typeCounts).sort((a,b)=>b[1]-a[1]).map(([k,v]) => `
+        <div class="stat-bar-row">
+          <span class="stat-bar-label">${k}</span>
+          <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${(v/maxType)*100}%"></div></div>
+          <span class="stat-bar-count">${v}</span>
+        </div>
+      `).join("") || "<p class='empty-state'>No data yet</p>"}
+    </div>
+    <div class="stats-card">
+      <h3>By Site</h3>
+      ${Object.entries(siteCounts).sort((a,b)=>b[1]-a[1]).map(([k,v]) => `
+        <div class="stat-bar-row">
+          <span class="stat-bar-label">${k}</span>
+          <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${(v/maxSite)*100}%"></div></div>
+          <span class="stat-bar-count">${v}</span>
+        </div>
+      `).join("") || "<p class='empty-state'>No data yet</p>"}
+    </div>
+    <div class="stats-card">
+      <h3>Summary</h3>
+      <div class="detail-row"><b>Total artifacts</b><span>${artifacts.length}</span></div>
+      <div class="detail-row"><b>Unique sites</b><span>${Object.keys(siteCounts).length}</span></div>
+      <div class="detail-row"><b>With GPS</b><span>${artifacts.filter(a=>a.lat).length}</span></div>
+      <div class="detail-row"><b>With photos</b><span>${artifacts.filter(a=>a.photo).length}</span></div>
+      <div class="detail-row"><b>With drawings</b><span>${artifacts.filter(a=>a.drawing && a.drawing.length > 1000).length}</span></div>
+      <div class="detail-row"><b>With audio</b><span>${artifacts.filter(a=>a.audio).length}</span></div>
+    </div>
+  `;
+}
+
+/* ── EXPORT ──────────────────────────────────────────────────── */
+function exportCSV() {
+  let csv = "ID,Site,Type,Context,Depth,Condition,GPS,Date,Notes\n";
+  artifacts.forEach(a => {
+    csv += `${a.id},"${a.site||""}","${a.type||""}","${a.context||""}","${a.depth||""}","${a.condition||""}","${a.gps||""}","${a.date||""}","${(a.notes||"").replace(/"/g,'""')}"\n`;
+  });
+  let blob = new Blob([csv], {type:"text/csv"});
+  let link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "ArchaeoSmart_" + new Date().toISOString().split("T")[0] + ".csv";
+  link.click();
+  localStorage.setItem("lastExportCount", artifacts.length);
+  checkBackupReminder();
+  showToast("CSV exported");
+}
+
+/* ── GPS ─────────────────────────────────────────────────────── */
+function getLocation() {
+  const gpsField = document.getElementById("gps");
+  gpsField.innerText = "Acquiring GPS…";
+  if (!navigator.geolocation) { gpsField.innerText = "GPS not supported"; return; }
   navigator.geolocation.getCurrentPosition(
-    pos => {
-      document.getElementById('fLat').value = pos.coords.latitude.toFixed(6);
-      document.getElementById('fLng').value = pos.coords.longitude.toFixed(6);
-      status.textContent = `✓ GPS acquired (±${Math.round(pos.coords.accuracy)}m accuracy)`;
-      btn.textContent = '📍 Update GPS';
-      btn.disabled = false;
+    function(pos) {
+      gpsField.innerText = pos.coords.latitude.toFixed(6)+","+pos.coords.longitude.toFixed(6);
+      showToast("📍 GPS acquired");
     },
-    err => {
-      status.textContent = `GPS error: ${err.message}`;
-      btn.textContent = '📍 Get GPS';
-      btn.disabled = false;
-    },
-    { enableHighAccuracy: true, timeout: 15000 }
+    function(err) { gpsField.innerText = "Unable to get GPS: " + err.message; },
+    {enableHighAccuracy:true, timeout:20000, maximumAge:0}
   );
 }
 
-// ─── Photo ────────────────────────────────────────────────────────────────────
-function handlePhoto(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const img = document.createElement('img');
-    img.src = e.target.result;
-    const preview = document.getElementById('photoPreview');
-    preview.innerHTML = '';
-    preview.appendChild(img);
-  };
-  reader.readAsDataURL(file);
-}
-
-// ─── Voice Recording ─────────────────────────────────────────────────────────
-function toggleVoiceRecord() {
-  const btn = document.getElementById('voiceRecordBtn');
-  const status = document.getElementById('voiceStatus');
-
-  if (!voiceRecording) {
-    navigator.mediaDevices.getUserMedia({ audio: true })
-      .then(stream => {
-        audioChunks = [];
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-        mediaRecorder.onstop = () => {
-          audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-          const url = URL.createObjectURL(audioBlob);
-          const playback = document.getElementById('voicePlayback');
-          playback.src = url;
-          playback.style.display = 'block';
-          stream.getTracks().forEach(t => t.stop());
-        };
-        mediaRecorder.start();
-        voiceRecording = true;
-        btn.textContent = '⏹ Stop Recording';
-        btn.classList.add('recording');
-        status.textContent = '🔴 Recording…';
-      })
-      .catch(err => {
-        status.textContent = 'Microphone access denied.';
-      });
-  } else {
-    mediaRecorder.stop();
-    voiceRecording = false;
-    btn.textContent = '🎙 Start Recording';
-    btn.classList.remove('recording');
-    status.textContent = '✓ Recording saved';
-  }
-}
-
-// ─── Speech-to-Text ──────────────────────────────────────────────────────────
-function startSTT() {
-  const status = document.getElementById('voiceStatus');
-  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRec) {
-    status.textContent = 'Speech recognition not supported in this browser.';
-    return;
-  }
-  recognition = new SpeechRec();
+/* ── VOICE TEXT ──────────────────────────────────────────────── */
+function startDictation() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert("Speech recognition not supported"); return; }
+  recognition = new SR();
+  recognition.lang = "en-US";
   recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = 'en-US';
-  recognition.onresult = e => {
-    const txt = Array.from(e.results).map(r => r[0].transcript).join(' ');
-    document.getElementById('fVoiceText').value = txt;
+  recognition.onresult = function(e) {
+    document.getElementById("voiceText").value = e.results[e.results.length-1][0].transcript;
   };
-  recognition.onerror = () => { status.textContent = 'Speech recognition error.'; };
-  recognition.onend = () => { status.textContent = '✓ Speech-to-text complete'; };
   recognition.start();
-  status.textContent = '🎤 Listening… speak now';
-
-  // auto-stop after 10s
-  setTimeout(() => { if (recognition) recognition.stop(); }, 10000);
+  showToast("🎤 Listening…");
 }
 
-// ─── Drawing Canvas ───────────────────────────────────────────────────────────
-function setupDrawCanvas() {
-  drawCanvas = document.getElementById('drawCanvas');
-  if (!drawCanvas) return;
-  drawCtx = drawCanvas.getContext('2d');
-  resizeCanvas(drawCanvas);
-  addDrawEvents(drawCanvas, drawCtx, false);
-
-  window.addEventListener('resize', () => {
-    const img = drawCanvas.toDataURL();
-    resizeCanvas(drawCanvas);
-    const i = new Image();
-    i.onload = () => drawCtx.drawImage(i, 0, 0);
-    i.src = img;
-  });
+function stopDictation() {
+  if (recognition) { recognition.stop(); recognition = null; showToast("Dictation stopped"); }
 }
 
+/* ── AUDIO ───────────────────────────────────────────────────── */
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    audioRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+    audioRecorder.ondataavailable = e => audioChunks.push(e.data);
+    audioRecorder.onstop = () => {
+      const blob = new Blob(audioChunks, {type:"audio/webm"});
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        audioData = reader.result;
+        document.getElementById("audioPlayback").src = audioData;
+      };
+      reader.readAsDataURL(blob);
+    };
+    audioRecorder.start();
+    showToast("🎙 Recording…");
+  } catch(err) { alert("Microphone permission required"); }
+}
+
+function stopRecording() {
+  if (audioRecorder) { audioRecorder.stop(); showToast("Recording saved"); }
+}
+
+/* ── CANVAS ──────────────────────────────────────────────────── */
 function resizeCanvas(canvas) {
   const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
   canvas.width = rect.width * dpr;
   canvas.height = rect.height * dpr;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
+  canvas.getContext("2d").scale(dpr, dpr);
 }
 
-function addDrawEvents(canvas, ctx, isFS) {
-  const getPos = (e) => {
+function enableDrawing(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  resizeCanvas(canvas);
+  let drawing = false;
+  function getPos(e) {
     const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    const touch = e.touches ? e.touches[0] : e;
-    return {
-      x: (touch.clientX - rect.left),
-      y: (touch.clientY - rect.top)
-    };
-  };
-
-  const getSettings = () => {
-    if (isFS) {
-      return {
-        color: document.getElementById('fsBrushColor').value,
-        size: parseInt(document.getElementById('fsBrushSize').value),
-        opacity: parseFloat(document.getElementById('fsBrushOpacity').value)
-      };
-    }
-    return {
-      color: document.getElementById('brushColor').value,
-      size: parseInt(document.getElementById('brushSize').value),
-      opacity: parseFloat(document.getElementById('brushOpacity').value)
-    };
-  };
-
-  const startDraw = (e) => {
+    if (e.touches) return {x:e.touches[0].clientX-rect.left, y:e.touches[0].clientY-rect.top};
+    return {x:e.clientX-rect.left, y:e.clientY-rect.top};
+  }
+  function start(e) { drawing=true; const p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }
+  function draw(e) {
+    if (!drawing) return;
     e.preventDefault();
-    isDrawing = true;
-    const pos = getPos(e);
-    lastX = pos.x;
-    lastY = pos.y;
-  };
-
-  const draw = (e) => {
-    if (!isDrawing) return;
-    e.preventDefault();
-    const pos = getPos(e);
-    const s = getSettings();
-    ctx.beginPath();
-    ctx.moveTo(lastX, lastY);
-    ctx.lineTo(pos.x, pos.y);
-    ctx.strokeStyle = s.color;
-    ctx.lineWidth = s.size;
-    ctx.globalAlpha = s.opacity;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+    const p = getPos(e);
+    ctx.lineTo(p.x, p.y);
+    ctx.strokeStyle = currentColor;
+    ctx.lineWidth = currentBrush;
+    ctx.globalAlpha = currentOpacity;
+    ctx.lineCap = "round";
     ctx.stroke();
-    lastX = pos.x;
-    lastY = pos.y;
-  };
-
-  const stopDraw = () => { isDrawing = false; ctx.globalAlpha = 1; };
-
-  canvas.addEventListener('mousedown', startDraw);
-  canvas.addEventListener('mousemove', draw);
-  canvas.addEventListener('mouseup', stopDraw);
-  canvas.addEventListener('mouseleave', stopDraw);
-  canvas.addEventListener('touchstart', startDraw, { passive: false });
-  canvas.addEventListener('touchmove', draw, { passive: false });
-  canvas.addEventListener('touchend', stopDraw);
+  }
+  function stop() { drawing=false; ctx.beginPath(); }
+  canvas.addEventListener("mousedown", start);
+  canvas.addEventListener("mousemove", draw);
+  canvas.addEventListener("mouseup", stop);
+  canvas.addEventListener("touchstart", start, {passive:false});
+  canvas.addEventListener("touchmove", draw, {passive:false});
+  canvas.addEventListener("touchend", stop);
 }
 
 function clearCanvas() {
-  if (!drawCtx) return;
-  drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  const c = document.getElementById("canvas");
+  c.getContext("2d").clearRect(0,0,c.width,c.height);
 }
 
-// ─── Fullscreen Drawing ──────────────────────────────────────────────────────
-function openFullscreenDraw() {
-  const fs = document.getElementById('fullscreenDraw');
-  fs.style.display = 'flex';
-  fsCanvas = document.getElementById('fsCanvas');
-
-  // Size canvas
-  const toolbar = fs.querySelector('.fs-toolbar');
-  const h = window.innerHeight - toolbar.offsetHeight;
-  fsCanvas.style.height = h + 'px';
-  fsCanvas.style.width = '100%';
-  fsCanvas.width = window.innerWidth * (window.devicePixelRatio || 1);
-  fsCanvas.height = h * (window.devicePixelRatio || 1);
-
-  fsCtx = fsCanvas.getContext('2d');
-  fsCtx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
-
-  // Copy current drawing in
-  const existing = drawCanvas.toDataURL();
-  if (existing) {
-    const img = new Image();
-    img.onload = () => {
-      fsCtx.drawImage(img, 0, 0, window.innerWidth, h);
-    };
-    img.src = existing;
-  }
-
-  addDrawEvents(fsCanvas, fsCtx, true);
+function clearCanvasFull() {
+  const c = document.getElementById("canvasFull");
+  c.getContext("2d").clearRect(0,0,c.width,c.height);
 }
 
-function clearFSCanvas() {
-  if (!fsCtx) return;
-  fsCtx.clearRect(0, 0, fsCanvas.width, fsCanvas.height);
+function openCanvasFullscreen() {
+  const fs = document.getElementById("canvasFullscreen");
+  fs.classList.remove("hidden");
+  const fullCanvas = document.getElementById("canvasFull");
+  const smallCanvas = document.getElementById("canvas");
+  resizeCanvas(fullCanvas);
+  fullCanvas.getContext("2d").drawImage(smallCanvas,0,0);
 }
 
-function closeFSDraw() {
-  const fs = document.getElementById('fullscreenDraw');
-  // Copy back to small canvas
-  const img = new Image();
-  img.onload = () => {
-    const rect = drawCanvas.getBoundingClientRect();
-    drawCtx.clearRect(0, 0, rect.width, rect.height);
-    drawCtx.drawImage(img, 0, 0, rect.width, rect.height);
-  };
-  img.src = fsCanvas.toDataURL();
-  fs.style.display = 'none';
+function closeCanvasFullscreen() {
+  const fullCanvas = document.getElementById("canvasFull");
+  const smallCanvas = document.getElementById("canvas");
+  resizeCanvas(smallCanvas);
+  smallCanvas.getContext("2d").drawImage(fullCanvas,0,0,smallCanvas.width,smallCanvas.height);
+  document.getElementById("canvasFullscreen").classList.add("hidden");
 }
 
-// ─── Save Artifact ────────────────────────────────────────────────────────────
-function saveArtifact() {
-  const site = document.getElementById('fSite').value.trim();
-  const type = document.getElementById('fType').value;
-  const depth = document.getElementById('fDepth').value;
-  const date = document.getElementById('fDate').value;
-  const lat = document.getElementById('fLat').value;
-  const lng = document.getElementById('fLng').value;
-  const notes = document.getElementById('fNotes').value.trim();
-  const voiceText = document.getElementById('fVoiceText').value.trim();
-
-  if (!site && !type) {
-    showToast('Add at least a site or artifact type');
-    return;
-  }
-
-  const photoImg = document.querySelector('#photoPreview img');
-  const photo = photoImg ? photoImg.src : null;
-  const drawing = drawCanvas ? drawCanvas.toDataURL() : null;
-
-  let voiceData = null;
-  if (audioBlob) {
-    const reader = new FileReader();
-    reader.onload = e => {
-      voiceData = e.target.result;
-      finishSave(site, type, depth, date, lat, lng, notes, voiceText, photo, drawing, voiceData);
-    };
-    reader.readAsDataURL(audioBlob);
-  } else {
-    finishSave(site, type, depth, date, lat, lng, notes, voiceText, photo, drawing, null);
-  }
-}
-
-function finishSave(site, type, depth, date, lat, lng, notes, voiceText, photo, drawing, voiceData) {
-  const artifact = {
-    id: 'ART-' + Date.now(),
-    site, type, depth, date, lat, lng, notes, voiceText, photo, drawing, voiceData,
-    created: new Date().toISOString()
-  };
-
-  artifacts.unshift(artifact);
-  saveArtifacts();
-  updateStats();
-  resetForm();
-  showToast('⚱ Artifact recorded successfully');
-  goToScreen('home');
-}
-
-function resetForm() {
-  document.getElementById('fSite').value = '';
-  document.getElementById('fType').value = '';
-  document.getElementById('fDepth').value = '';
-  document.getElementById('fLat').value = '';
-  document.getElementById('fLng').value = '';
-  document.getElementById('fNotes').value = '';
-  document.getElementById('fVoiceText').value = '';
-  document.getElementById('gpsStatus').textContent = '';
-  document.getElementById('voiceStatus').textContent = '';
-  document.getElementById('photoPreview').innerHTML = '';
-  document.getElementById('voicePlayback').style.display = 'none';
-  if (drawCtx) drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-  audioBlob = null;
-  setupDate();
-}
-
-// ─── Database / Rendering ─────────────────────────────────────────────────────
-const typeIcons = {
-  'Ceramic / Pottery': '🏺',
-  'Lithic / Stone Tool': '🪨',
-  'Bone / Faunal': '🦴',
-  'Metal Object': '⚙',
-  'Glass': '💠',
-  'Organic Material': '🌿',
-  'Architectural': '🧱',
-  'Coin / Currency': '🪙',
-  'Inscription': '📜',
-  'Figurine': '🗿',
-  'Other': '❓',
-};
-
-function getIcon(type) {
-  return typeIcons[type] || '⚱';
-}
-
-function renderArtifacts(query = '') {
-  const list = document.getElementById('artifactList');
-  const q = query.toLowerCase();
-  const filtered = artifacts.filter(a =>
-    !q ||
-    a.id?.toLowerCase().includes(q) ||
-    a.site?.toLowerCase().includes(q) ||
-    a.type?.toLowerCase().includes(q) ||
-    a.notes?.toLowerCase().includes(q)
-  );
-
-  if (!filtered.length) {
-    list.innerHTML = `<div style="text-align:center;color:var(--text-dim);padding:32px;font-style:italic">
-      ${artifacts.length === 0 ? 'No artifacts recorded yet.' : 'No matching artifacts.'}
-    </div>`;
-    return;
-  }
-
-  list.innerHTML = filtered.map(a => `
-    <div class="artifact-card" onclick="openDetail('${a.id}')">
-      <div class="artifact-card-icon">${getIcon(a.type)}</div>
-      <div class="artifact-card-info">
-        <div class="artifact-card-id">${a.id}</div>
-        <div class="artifact-card-type">${a.type || 'Unknown type'}</div>
-        <div class="artifact-card-site">${a.site || 'Unknown site'}${a.depth ? ' · ' + a.depth + 'cm' : ''}${a.date ? ' · ' + a.date : ''}</div>
-      </div>
-      <div class="artifact-card-badges">
-        ${a.lat ? '<span class="badge">📍</span>' : ''}
-        ${a.photo ? '<span class="badge">📷</span>' : ''}
-        ${a.voiceData ? '<span class="badge">🎙</span>' : ''}
-        ${a.drawing ? '<span class="badge">✏</span>' : ''}
-      </div>
-    </div>
-  `).join('');
-
-  document.getElementById('dbCount').textContent = `${filtered.length} of ${artifacts.length} artifact${artifacts.length !== 1 ? 's' : ''}`;
-}
-
-function filterArtifacts(q) {
-  renderArtifacts(q);
-}
-
-// ─── Artifact Detail Modal ────────────────────────────────────────────────────
-function openDetail(id) {
-  const a = artifacts.find(x => x.id === id);
-  if (!a) return;
-  currentArtifact = a;
-
-  const modal = document.getElementById('detailModal');
-  const content = document.getElementById('detailContent');
-
-  content.innerHTML = `
-    <div class="detail-header">
-      <div class="detail-id">${a.id}</div>
-      <div class="detail-type">${getIcon(a.type)} ${a.type || 'Unknown Type'}</div>
-      <div class="detail-site">${a.site || 'Unknown site'}</div>
-    </div>
-    <div class="detail-fields">
-      ${a.depth ? `<div class="detail-field"><div class="detail-field-label">Depth</div><div class="detail-field-value">${a.depth} cm</div></div>` : ''}
-      ${a.date ? `<div class="detail-field"><div class="detail-field-label">Date</div><div class="detail-field-value">${a.date}</div></div>` : ''}
-      ${a.lat && a.lng ? `<div class="detail-field"><div class="detail-field-label">GPS</div><div class="detail-field-value">${a.lat}, ${a.lng}</div></div>` : ''}
-      ${a.notes ? `<div class="detail-field"><div class="detail-field-label">Field Notes</div><div class="detail-field-value">${a.notes}</div></div>` : ''}
-      ${a.voiceText ? `<div class="detail-field"><div class="detail-field-label">Voice Notes (STT)</div><div class="detail-field-value">${a.voiceText}</div></div>` : ''}
-      ${a.voiceData ? `<div class="detail-field"><div class="detail-field-label">Voice Recording</div><audio controls src="${a.voiceData}" style="width:100%"></audio></div>` : ''}
-      ${a.photo ? `<div class="detail-field"><div class="detail-field-label">Photo</div><img class="detail-img" src="${a.photo}" alt="Artifact photo"></div>` : ''}
-      ${a.drawing ? `<div class="detail-field"><div class="detail-field-label">Drawing</div><img class="detail-drawing" src="${a.drawing}" alt="Artifact sketch"></div>` : ''}
-    </div>
-    <div class="detail-field" style="margin-top:16px">
-      <div class="detail-field-label">QR Code</div>
-      <div id="qrDisplay"></div>
-    </div>
-    <div class="detail-actions">
-      <button class="icon-btn small" onclick="deleteArtifact('${a.id}')">🗑 Delete</button>
-    </div>
-  `;
-
-  modal.style.display = 'block';
-
-  // Generate QR
-  setTimeout(() => {
-    const qrEl = document.getElementById('qrDisplay');
-    if (qrEl && window.QRCode) {
-      new QRCode(qrEl, {
-        text: a.id,
-        width: 220,
-        height: 220,
-        colorDark: '#000000',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.H,
-      });
-    }
-  }, 50);
-}
-
-function closeModal() {
-  document.getElementById('detailModal').style.display = 'none';
-  currentArtifact = null;
-}
-
-function deleteArtifact(id) {
-  if (!confirm('Delete this artifact record? This cannot be undone.')) return;
-  artifacts = artifacts.filter(a => a.id !== id);
-  saveArtifacts();
-  updateStats();
-  closeModal();
-  renderArtifacts(document.getElementById('searchInput').value);
-  showToast('Artifact deleted');
-}
-
-// ─── Map ──────────────────────────────────────────────────────────────────────
-function initMap() {
-  const container = document.getElementById('mapContainer');
-  if (!container) return;
-
-  if (!map) {
-    map = L.map('mapContainer', { zoomControl: true }).setView([30, 0], 2);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 19
-    }).addTo(map);
-  }
-
-  // Clear existing markers
-  mapMarkers.forEach(m => map.removeLayer(m));
-  mapMarkers = [];
-
-  const geo = artifacts.filter(a => a.lat && a.lng);
-
-  if (geo.length) {
-    geo.forEach((a, i) => {
-      const lat = parseFloat(a.lat) + (Math.random() - 0.5) * 0.00005 * (i % 5);
-      const lng = parseFloat(a.lng) + (Math.random() - 0.5) * 0.00005 * (i % 5);
-      const icon = L.divIcon({
-        className: '',
-        html: `<div style="background:#c9a84c;border:2px solid #1a1207;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.5)">${getIcon(a.type)}</div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-      });
-      const marker = L.marker([lat, lng], { icon })
-        .addTo(map)
-        .bindPopup(`<strong>${a.id}</strong><br>${a.type || 'Unknown'}<br><em>${a.site || ''}</em><br><a onclick="openDetail('${a.id}');closeMap()" href="#" style="color:var(--gold)">View Details →</a>`);
-      mapMarkers.push(marker);
-    });
-    const bounds = L.latLngBounds(geo.map(a => [parseFloat(a.lat), parseFloat(a.lng)]));
-    map.fitBounds(bounds.pad(0.3));
-  }
-
-  setTimeout(() => map.invalidateSize(), 100);
-}
-
-// ─── QR Scanner ───────────────────────────────────────────────────────────────
+/* ── QR SCANNER (ORIGINAL WORKING VERSION) ───────────────────── */
 function startScanner() {
-  const result = document.getElementById('scanResult');
-  result.innerHTML = '<em style="color:var(--text-dim)">Starting camera…</em>';
-
-  if (html5QrCode) return;
-
-  html5QrCode = new Html5Qrcode('qrReader');
-
+  hideAll();
+  document.getElementById("scannerScreen").classList.remove("hidden");
+  const html5QrCode = new Html5Qrcode("reader");
   html5QrCode.start(
-    { facingMode: 'environment' },
-    { fps: 10, qrbox: 250 },
-    decoded => {
-      result.innerHTML = `<strong style="color:var(--gold)">✓ Scanned: ${decoded}</strong>`;
-      const found = artifacts.find(a => a.id === decoded);
-      if (found) {
-        html5QrCode.stop().then(() => { html5QrCode = null; openDetail(found.id); });
-      } else {
-        result.innerHTML += `<br><em style="color:var(--text-muted)">No artifact found with this ID.</em>`;
-      }
+    {facingMode:"environment"},
+    {fps:10, qrbox:250},
+    msg => {
+      let artifact = artifacts.find(a => a.id.toString() === msg);
+      if (artifact) { showDetail(artifact.id); }
+      else { showToast("QR scanned — artifact not found"); }
+      html5QrCode.stop();
     }
-  ).then(() => {
-    result.innerHTML = '<em style="color:var(--text-dim)">📷 Scanner ready — hold QR code steady in the frame</em>';
-  }).catch(err => {
-    result.innerHTML = `<span style="color:var(--text-muted)">Camera unavailable: ${err}</span>`;
-    html5QrCode = null;
+  );
+}
+
+/* ── MAP ─────────────────────────────────────────────────────── */
+function showMap() {
+  hideAll();
+  document.getElementById("mapScreen").classList.remove("hidden");
+  if (mapInstance) { mapInstance.remove(); }
+  mapInstance = L.map("map").setView([31.63,-8], 6);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19}).addTo(mapInstance);
+  artifacts.forEach((a, i) => {
+    if (!a.lat || !a.lng) return;
+    let lat = a.lat+(i*0.00005);
+    let lng = a.lng+(i*0.00005);
+    let marker = L.marker([lat,lng]).addTo(mapInstance);
+    marker.bindPopup(`<b>${a.type}</b><br>Site: ${a.site}<br>Depth: ${a.depth} cm<br><button onclick="showDetail(${a.id})">Open</button>`);
   });
 }
 
-function stopScanner() {
-  if (html5QrCode) {
-    html5QrCode.stop().then(() => {
-      html5QrCode = null;
-    }).catch(() => { html5QrCode = null; });
-  }
-}
+/* ── RESIZE ──────────────────────────────────────────────────── */
+window.addEventListener("resize", () => {
+  const c = document.getElementById("canvasFull");
+  if (c) resizeCanvas(c);
+});
 
-// ─── CSV Export ───────────────────────────────────────────────────────────────
-function exportCSV() {
-  if (!artifacts.length) { showToast('No artifacts to export'); return; }
-  const headers = ['ID', 'Site', 'Type', 'Depth (cm)', 'Date', 'Latitude', 'Longitude', 'Notes', 'Voice Notes', 'Created'];
-  const rows = artifacts.map(a => [
-    a.id, a.site, a.type, a.depth, a.date, a.lat, a.lng,
-    (a.notes || '').replace(/"/g, '""'),
-    (a.voiceText || '').replace(/"/g, '""'),
-    a.created
-  ].map(v => `"${v || ''}"`).join(','));
-  const csv = [headers.join(','), ...rows].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `ArchaeoSmart_Export_${new Date().toISOString().split('T')[0]}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('CSV exported');
-}
-
-// ─── Toast ────────────────────────────────────────────────────────────────────
-function createToast() {
-  const t = document.createElement('div');
-  t.id = 'toast';
-  document.body.appendChild(t);
-}
-
+/* ── TOAST ───────────────────────────────────────────────────── */
 function showToast(msg) {
-  const t = document.getElementById('toast');
+  const t = document.getElementById("toast");
   if (!t) return;
   t.textContent = msg;
-  t.classList.add('show');
+  t.classList.add("show");
   clearTimeout(window._toastTimer);
-  window._toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+  window._toastTimer = setTimeout(() => t.classList.remove("show"), 2800);
 }
-
-// ─── PWA ──────────────────────────────────────────────────────────────────────
-function setupPWA() {
-  window.addEventListener('beforeinstallprompt', e => {
-    e.preventDefault();
-    deferredPrompt = e;
-    const btn = document.getElementById('installBtn');
-    if (btn) btn.style.display = 'block';
-  });
-
-  document.getElementById('installBtn')?.addEventListener('click', () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then(() => {
-      deferredPrompt = null;
-      document.getElementById('installBtn').style.display = 'none';
-    });
-  });
-}
-
-function registerServiceWorker() {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  }
-}
-
-// Close modal on background click
-document.getElementById('detailModal')?.addEventListener('click', e => {
-  if (e.target === document.getElementById('detailModal')) closeModal();
-});
