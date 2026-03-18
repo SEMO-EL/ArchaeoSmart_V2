@@ -1,4 +1,4 @@
-/* ArchaeoSmart v3 — app.js */
+/* ArchaeoSmart v2.0.0 — app.js */
 
 let artifacts = JSON.parse(localStorage.getItem("artifacts")) || [];
 let currentID = null;
@@ -89,7 +89,7 @@ function updateHomeStats() {
   const today = new Date().toDateString();
   const todayCount = artifacts.filter(a => new Date(a.savedAt || 0).toDateString() === today).length;
   const sites = new Set(artifacts.map(a => a.site).filter(Boolean)).size;
-  const geoCount = artifacts.filter(a => a.lat && a.lng).length;
+  const geoCount = artifacts.filter(a => a.lat !== null && a.lat !== undefined && a.lng !== null && a.lng !== undefined).length;
   document.getElementById("statTotal").textContent = artifacts.length;
   document.getElementById("statSites").textContent = sites;
   document.getElementById("statToday").textContent = todayCount;
@@ -163,13 +163,20 @@ function showArtifact() {
   currentID = Date.now();
   selectedCondition = null;
   selectedType = null;
-  document.getElementById("date").innerText = new Date().toLocaleString();
+  // Reset all form fields
+  document.getElementById("site").value      = "";
+  document.getElementById("context").value   = "";
+  document.getElementById("depth").value     = "";
+  document.getElementById("notes").value     = "";
+  document.getElementById("voiceText").value = "";
+  document.getElementById("gps").innerText   = "Not recorded";
+  document.getElementById("type").value      = "";
+  document.getElementById("condition").value = "";
+  document.getElementById("date").innerText  = new Date().toLocaleString();
   document.getElementById("qrcode").innerHTML = "";
   new QRCode(document.getElementById("qrcode"), currentID.toString());
   document.querySelectorAll(".type-btn").forEach(b => b.classList.remove("active"));
   document.querySelectorAll(".cond-btn").forEach(b => b.classList.remove("active"));
-  document.getElementById("condition").value = "";
-  document.getElementById("type").value = "";
   document.getElementById("preview").style.display = "none";
   document.getElementById("preview").src = "";
   document.getElementById("audioPlayback").src = "";
@@ -222,14 +229,14 @@ const VI_STEPS = [
     key: "site",
     icon: "◎",
     question: "What is the site name or excavation unit?",
-    example: `e.g. "Site Alpha" or "Trench 3, Unit B"`,
+    example: "e.g. 'Site Alpha' or 'Trench 3, Unit B'",
     parse: (t) => t.trim().replace(/^(site|at|from)\s+/i, "").trim() || null
   },
   {
     key: "type",
     icon: "⚱",
     question: "What type of artifact is this?",
-    example: `e.g. "ceramic", "lithic", "bone", "metal", "coin", "glass"`,
+    example: "e.g. 'ceramic', 'lithic', 'bone', 'metal', 'coin', 'glass'",
     parse: (t) => {
       const map = {
         "ceramic":"Ceramic / Pottery","pottery":"Ceramic / Pottery","sherd":"Ceramic / Pottery","pot":"Ceramic / Pottery",
@@ -255,7 +262,7 @@ const VI_STEPS = [
     key: "context",
     icon: "▦",
     question: "What is the stratigraphic context or layer?",
-    example: 'e.g. "Layer 2B" or "Context 14" or say "skip" if unknown',
+    example: "e.g. 'Layer 2B' or 'Context 14' — say skip if unknown",
     parse: (t) => {
       const clean = t.toLowerCase().trim();
       if (clean === "skip" || clean === "unknown") return null;
@@ -266,7 +273,7 @@ const VI_STEPS = [
     key: "depth",
     icon: "↓",
     question: "What is the depth in centimetres?",
-    example: 'e.g. "forty five" or "45 centimetres"',
+    example: "e.g. 'forty five' or '45 centimetres'",
     parse: (t) => {
       let m = t.match(/(\d+(?:\.\d+)?)\s*(?:cm|centim|cent)?/i);
       if (m) return m[1];
@@ -289,7 +296,7 @@ const VI_STEPS = [
     key: "condition",
     icon: "★",
     question: "What is the condition of the artifact?",
-    example: 'Say "excellent", "very good", "good", "fair", or "poor"',
+    example: "Say 'excellent', 'very good', 'good', 'fair', or 'poor'",
     parse: (t) => {
       const lower = t.toLowerCase();
       if (lower.includes("excellent") || lower.includes("perfect")) return 5;
@@ -338,16 +345,13 @@ function viSetMainButton(icon, label, recording = false) {
 
 function viCancelAnswerListening() {
   viAnswerSessionId++;
-  if (viState.silenceTimer) {
-    clearTimeout(viState.silenceTimer);
-    viState.silenceTimer = null;
-  }
+  if (viState.silenceTimer) { clearTimeout(viState.silenceTimer); viState.silenceTimer = null; }
   if (viState.recognition) {
     try { viState.recognition.onresult = null; } catch(e){}
-    try { viState.recognition.onerror = null; } catch(e){}
-    try { viState.recognition.onend = null; } catch(e){}
-    try { viState.recognition.stop(); } catch(e){}
-    try { viState.recognition.abort(); } catch(e){}
+    try { viState.recognition.onerror  = null; } catch(e){}
+    try { viState.recognition.onend    = null; } catch(e){}
+    try { viState.recognition.stop();          } catch(e){}
+    try { viState.recognition.abort();         } catch(e){}
     viState.recognition = null;
   }
   viState.listening = false;
@@ -355,16 +359,13 @@ function viCancelAnswerListening() {
 
 function viCancelConfirmationListening() {
   viConfirmSessionId++;
-  if (viState.confirmTimeout) {
-    clearTimeout(viState.confirmTimeout);
-    viState.confirmTimeout = null;
-  }
+  if (viState.confirmTimeout) { clearTimeout(viState.confirmTimeout); viState.confirmTimeout = null; }
   if (viState.confirmRecognition) {
     try { viState.confirmRecognition.onresult = null; } catch(e){}
-    try { viState.confirmRecognition.onerror = null; } catch(e){}
-    try { viState.confirmRecognition.onend = null; } catch(e){}
-    try { viState.confirmRecognition.stop(); } catch(e){}
-    try { viState.confirmRecognition.abort(); } catch(e){}
+    try { viState.confirmRecognition.onerror  = null; } catch(e){}
+    try { viState.confirmRecognition.onend    = null; } catch(e){}
+    try { viState.confirmRecognition.stop();          } catch(e){}
+    try { viState.confirmRecognition.abort();         } catch(e){}
     viState.confirmRecognition = null;
   }
   viState.awaitingConfirmation = false;
@@ -389,7 +390,7 @@ function viSpeak(text, onDone) {
             || voices.find(v => v.lang === "en-US")
             || voices.find(v => v.lang.startsWith("en"));
   if (pref) utt.voice = pref;
-  utt.onend = () => { if (onDone) onDone(); };
+  utt.onend  = () => { if (onDone) onDone(); };
   utt.onerror = () => { if (onDone) onDone(); };
   viState.tts = utt;
   window.speechSynthesis.speak(utt);
@@ -450,7 +451,6 @@ function viStartInterview() {
 
 function viAskStep() {
   viCancelAllListening();
-
   const step = VI_STEPS[viState.step];
   const pct  = (viState.step / VI_STEPS.length) * 100;
 
@@ -484,20 +484,18 @@ function viListenForAnswer() {
   const sessionId = ++viAnswerSessionId;
 
   const r = new SR();
-  r.lang             = "en-US";
-  r.continuous       = true;
-  r.interimResults   = true;
-  r.maxAlternatives  = 3;
+  r.lang            = "en-US";
+  r.continuous      = true;
+  r.interimResults  = true;
+  r.maxAlternatives = 3;
   viState.recognition = r;
 
   viSetMainButton("⏹", "Listening…", true);
 
   r.onresult = function(e) {
     if (sessionId !== viAnswerSessionId) return;
-
     let interim = "";
     let final   = viState.finalTranscript;
-
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const res = e.results[i];
       let bestText = res[0].transcript;
@@ -508,19 +506,12 @@ function viListenForAnswer() {
           bestText = res[j].transcript;
         }
       }
-      if (res.isFinal) {
-        final += (final ? " " : "") + bestText;
-      } else {
-        interim = bestText;
-      }
+      if (res.isFinal) { final += (final ? " " : "") + bestText; }
+      else { interim = bestText; }
     }
-
     viState.finalTranscript   = final;
     viState.interimTranscript = interim;
-
-    const display = (final + (interim ? " " + interim : "")).trim();
-    document.getElementById("viInterim").textContent = display;
-
+    document.getElementById("viInterim").textContent = (final + (interim ? " " + interim : "")).trim();
     if (viState.silenceTimer) clearTimeout(viState.silenceTimer);
     if (final) {
       viState.silenceTimer = setTimeout(() => {
@@ -541,7 +532,6 @@ function viListenForAnswer() {
 
   r.onerror = function(e) {
     if (sessionId !== viAnswerSessionId) return;
-
     if (e.error === "no-speech") {
       viState.listening = false;
       try { r.stop(); } catch(err){}
@@ -551,7 +541,6 @@ function viListenForAnswer() {
       }, 400);
       return;
     }
-
     viState.listening = false;
     viSetMainButton("🎤", "Tap to Answer", false);
     showToast("Mic error: " + e.error);
@@ -559,94 +548,57 @@ function viListenForAnswer() {
 
   r.onend = function() {
     if (sessionId !== viAnswerSessionId) return;
-    if (viState.listening) {
-      try { r.start(); } catch(e) {}
-    }
+    if (viState.listening) { try { r.start(); } catch(e) {} }
   };
 
   try { r.start(); } catch(e) { showToast("Could not start microphone"); }
 }
 
 function viStopListening(force) {
-  if (viState.silenceTimer) {
-    clearTimeout(viState.silenceTimer);
-    viState.silenceTimer = null;
-  }
-
+  if (viState.silenceTimer) { clearTimeout(viState.silenceTimer); viState.silenceTimer = null; }
   const heard = (viState.finalTranscript || viState.interimTranscript).trim();
-
   viCancelAnswerListening();
   viSetMainButton("🎤", "Tap to Answer", false);
-
   if (!heard && !force) {
     viSpeak("I didn't catch that. Please answer again.", () => {
       setTimeout(() => viListenForAnswer(), 300);
     });
     return;
   }
-
   viShowConfirmation(heard);
 }
 
 /* ── Confirmation ────────────────────────────────────────────── */
 function viParseConfirmationCommand(text) {
   const t = text.toLowerCase().trim();
-
-  if (
-    t.includes("yes") ||
-    t.includes("correct") ||
-    t.includes("okay") ||
-    t.includes("ok") ||
-    t.includes("confirm")
-  ) return "accept";
-
-  if (
-    t.includes("no") ||
-    t.includes("retry") ||
-    t.includes("again") ||
-    t.includes("repeat")
-  ) return "retry";
-
-  if (
-    t.includes("skip") ||
-    t.includes("next")
-  ) return "skip";
-
+  if (t.includes("yes") || t.includes("correct") || t.includes("okay") || t.includes("ok") || t.includes("confirm")) return "accept";
+  if (t.includes("no")  || t.includes("retry")   || t.includes("again") || t.includes("repeat")) return "retry";
+  if (t.includes("skip") || t.includes("next")) return "skip";
   return null;
 }
 
 function viShowConfirmation(heard) {
   const step   = VI_STEPS[viState.step];
   const parsed = step.parse(heard);
-
-  document.getElementById("viInterim").textContent = "";
-  document.getElementById("viHeardText").textContent = heard || "(nothing)";
-  document.getElementById("viHeard").style.display = "block";
-
-  viState._pendingHeard   = heard;
-  viState._pendingParsed  = parsed;
-  viState.confirmRetries  = 0;
+  document.getElementById("viInterim").textContent    = "";
+  document.getElementById("viHeardText").textContent  = heard || "(nothing)";
+  document.getElementById("viHeard").style.display    = "block";
+  viState._pendingHeard  = heard;
+  viState._pendingParsed = parsed;
+  viState.confirmRetries = 0;
   viState.awaitingConfirmation = true;
-
   viSetMainButton("🎙", "Say yes, no, or skip", false);
-
   const readback = heard
     ? `I heard: ${heard}. Say yes to confirm, no to try again, or skip.`
     : "I did not catch anything. Say no to try again, or skip.";
-
-  viSpeak(readback, () => {
-    setTimeout(() => viListenForConfirmation(), 350);
-  });
+  viSpeak(readback, () => { setTimeout(() => viListenForConfirmation(), 350); });
 }
 
 function viListenForConfirmation() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return;
-
   viCancelConfirmationListening();
-
   const sessionId = ++viConfirmSessionId;
-
   const r = new SR();
   r.lang = "en-US";
   r.continuous = false;
@@ -654,30 +606,16 @@ function viListenForConfirmation() {
   r.maxAlternatives = 3;
   viState.confirmRecognition = r;
   viState.awaitingConfirmation = true;
-
   viSetMainButton("🎙", "Say yes, no, or skip", false);
 
   r.onresult = function(e) {
     if (sessionId !== viConfirmSessionId) return;
     let heard = "";
-    if (e.results && e.results[0] && e.results[0][0]) {
-      heard = e.results[0][0].transcript || "";
-    }
+    if (e.results && e.results[0] && e.results[0][0]) heard = e.results[0][0].transcript || "";
     const action = viParseConfirmationCommand(heard);
-
-    if (action === "accept") {
-      viAccept();
-      return;
-    }
-    if (action === "retry") {
-      viRetry();
-      return;
-    }
-    if (action === "skip") {
-      viSkip();
-      return;
-    }
-
+    if (action === "accept") { viAccept(); return; }
+    if (action === "retry")  { viRetry();  return; }
+    if (action === "skip")   { viSkip();   return; }
     viHandleConfirmationMiss(sessionId);
   };
 
@@ -686,9 +624,7 @@ function viListenForConfirmation() {
     viHandleConfirmationMiss(sessionId);
   };
 
-  r.onend = function() {
-    // no-op; handled by timeout/result/error
-  };
+  r.onend = function() { /* handled by timeout/result/error */ };
 
   viState.confirmTimeout = setTimeout(() => {
     if (sessionId !== viConfirmSessionId) return;
@@ -701,25 +637,16 @@ function viListenForConfirmation() {
 
 function viHandleConfirmationMiss(sessionId) {
   if (sessionId !== viConfirmSessionId) return;
-
-  if (viState.confirmTimeout) {
-    clearTimeout(viState.confirmTimeout);
-    viState.confirmTimeout = null;
-  }
-
+  if (viState.confirmTimeout) { clearTimeout(viState.confirmTimeout); viState.confirmTimeout = null; }
   if (viState.confirmRecognition) {
     try { viState.confirmRecognition.abort(); } catch(e){}
     viState.confirmRecognition = null;
   }
-
   viState.awaitingConfirmation = true;
   viState.confirmRetries++;
-
   if (viState.confirmRetries <= 1) {
     viSetMainButton("🎙", "Say yes, no, or skip", false);
-    viSpeak("Please say yes, no, or skip.", () => {
-      setTimeout(() => viListenForConfirmation(), 300);
-    });
+    viSpeak("Please say yes, no, or skip.", () => { setTimeout(() => viListenForConfirmation(), 300); });
   } else {
     viSetMainButton("🎙", "Say yes, no, or skip", false);
     showToast("Say yes, no, or skip");
@@ -729,17 +656,14 @@ function viHandleConfirmationMiss(sessionId) {
 function viAccept() {
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   viCancelConfirmationListening();
-
   const step   = VI_STEPS[viState.step];
   const parsed = (viState._pendingParsed !== null && viState._pendingParsed !== undefined)
     ? viState._pendingParsed
     : viState._pendingHeard;
-
   if (parsed !== null && parsed !== undefined) {
     viState.answers[step.key] = parsed;
     viRenderAnswers();
   }
-
   document.getElementById("viHeard").style.display = "none";
   viNextStep();
 }
@@ -747,33 +671,24 @@ function viAccept() {
 function viRetry() {
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   viCancelConfirmationListening();
-
   document.getElementById("viHeard").style.display = "none";
   viState.finalTranscript   = "";
   viState.interimTranscript = "";
-
   viSetMainButton("🎤", "Waiting for answer", false);
-
-  viSpeak(VI_STEPS[viState.step].question, () => {
-    setTimeout(() => viListenForAnswer(), 300);
-  });
+  viSpeak(VI_STEPS[viState.step].question, () => { setTimeout(() => viListenForAnswer(), 300); });
 }
 
 function viSkip() {
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   viCancelConfirmationListening();
-
   document.getElementById("viHeard").style.display = "none";
   viNextStep();
 }
 
 function viNextStep() {
   viState.step++;
-  if (viState.step >= VI_STEPS.length) {
-    viFinish();
-  } else {
-    viAskStep();
-  }
+  if (viState.step >= VI_STEPS.length) { viFinish(); }
+  else { viAskStep(); }
 }
 
 /* ── Render collected answers ────────────────────────────────── */
@@ -791,7 +706,6 @@ function viRenderAnswers() {
 /* ── Finish ──────────────────────────────────────────────────── */
 function viFinish() {
   viCancelAllListening();
-
   document.getElementById("viProgressBar").style.width = "100%";
   document.getElementById("viStepLabel").textContent = "Interview complete";
   document.getElementById("viQuestionIcon").textContent = "⚱";
@@ -801,88 +715,85 @@ function viFinish() {
   document.getElementById("viActions").style.display = "flex";
   document.getElementById("viActions").style.flexDirection = "column";
   document.getElementById("viActions").style.gap = "8px";
-
   voiceParsedData = { ...viState.answers, rawVoice: Object.entries(viState.answers).map(([k,v])=>`${k}: ${v}`).join(", ") };
   viRenderAnswers();
-
   viSpeak("Recording complete. You can now save the artifact or review the fields.", null);
 }
 
-/* ── Old single-shot toggle (kept for compatibility fallback) ── */
 function toggleVoiceCapture() { viButtonPressed(); }
 
 /* ── Parsed voice save/edit ──────────────────────────────────── */
 function editVoiceParsed() {
   if (!voiceParsedData || Object.keys(voiceParsedData).length === 0) {
-    showToast("No parsed voice data to edit");
-    return;
+    showToast("No parsed voice data to edit"); return;
   }
-
   showArtifact();
-
-  document.getElementById("site").value = voiceParsedData.site || "";
+  document.getElementById("site").value    = voiceParsedData.site    || "";
   document.getElementById("context").value = voiceParsedData.context || "";
-  document.getElementById("depth").value = voiceParsedData.depth || "";
-  document.getElementById("notes").value = voiceParsedData.notes || "";
+  document.getElementById("depth").value   = voiceParsedData.depth   || "";
+  document.getElementById("notes").value   = voiceParsedData.notes   || "";
   document.getElementById("voiceText").value = voiceParsedData.rawVoice || "";
-
-  if (voiceParsedData.type) {
-    selectType(voiceParsedData.type);
-  }
-
-  if (voiceParsedData.condition) {
-    setCondition(parseInt(voiceParsedData.condition, 10));
-  }
-
+  if (voiceParsedData.type)      selectType(voiceParsedData.type);
+  if (voiceParsedData.condition) setCondition(parseInt(voiceParsedData.condition, 10));
   showToast("Parsed interview moved into artifact form");
 }
 
 function saveVoiceParsed() {
   if (!voiceParsedData || Object.keys(voiceParsedData).length === 0) {
-    showToast("No voice interview data to save");
-    return;
+    showToast("No voice interview data to save"); return;
   }
-
   currentID = Date.now();
 
-  let artifact = {
-    id: currentID,
-    site: voiceParsedData.site || "",
-    type: voiceParsedData.type || "",
-    context: voiceParsedData.context || "",
-    depth: voiceParsedData.depth || "",
-    condition: voiceParsedData.condition || null,
-    notes: voiceParsedData.notes || "",
-    voice: voiceParsedData.rawVoice || "",
-    audio: null,
-    gps: "Not recorded",
-    lat: null,
-    lng: null,
-    date: new Date().toLocaleString(),
-    photo: "",
-    drawing: "",
-    savedAt: new Date().toISOString()
+  const doSave = (gpsStr, lat, lng) => {
+    let artifact = {
+      id: currentID,
+      site: voiceParsedData.site || "",
+      type: voiceParsedData.type || "",
+      context: voiceParsedData.context || "",
+      depth: voiceParsedData.depth || "",
+      condition: voiceParsedData.condition || null,
+      notes: voiceParsedData.notes || "",
+      voice: voiceParsedData.rawVoice || "",
+      audio: null,
+      gps: gpsStr,
+      lat: lat, lng: lng,
+      date: new Date().toLocaleString(),
+      photo: "", drawing: "",
+      savedAt: new Date().toISOString()
+    };
+    artifacts.push(artifact);
+    localStorage.setItem("artifacts", JSON.stringify(artifacts));
+    showToast("⚱ Voice interview saved successfully");
+    showHome();
   };
 
-  artifacts.push(artifact);
-  localStorage.setItem("artifacts", JSON.stringify(artifacts));
-  showToast("⚱ Voice interview saved successfully");
-  showHome();
+  if (navigator.geolocation) {
+    showToast("📍 Getting GPS…");
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const lat = pos.coords.latitude.toFixed(6);
+        const lng = pos.coords.longitude.toFixed(6);
+        doSave(`${lat},${lng}`, parseFloat(lat), parseFloat(lng));
+      },
+      () => doSave("Not recorded", null, null),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
+  } else {
+    doSave("Not recorded", null, null);
+  }
 }
 
 /* ── DATABASE ────────────────────────────────────────────────── */
 function showDatabase() {
   hideAll();
+  stopScanner();
   document.getElementById("databaseScreen").classList.remove("hidden");
   renderDatabase(artifacts);
 }
 
 function renderDatabase(list) {
   let container = document.getElementById("artifactList");
-  if (!list.length) {
-    container.innerHTML = `<div class="empty-state">No artifacts found</div>`;
-    return;
-  }
+  if (!list.length) { container.innerHTML = `<div class="empty-state">No artifacts found</div>`; return; }
   const typeIcons = {"Ceramic / Pottery":"🏺","Lithic / Stone Tool":"🪨","Bone / Faunal":"🦴","Metal Object":"⚙","Glass":"💠","Organic Material":"🌿","Coin / Currency":"🪙","Inscription":"📜","Figurine":"🗿","Architectural":"🧱"};
   container.innerHTML = list.map(a => `
     <div class="artifactCard" onclick="showDetail(${a.id})">
@@ -893,10 +804,10 @@ function renderDatabase(list) {
         <div class="card-date">${a.date||""}</div>
       </div>
       <div class="card-badges">
-        ${a.lat ? '<span class="badge">📍</span>' : ''}
-        ${a.photo ? '<span class="badge">📷</span>' : ''}
-        ${a.audio ? '<span class="badge">🎙</span>' : ''}
-        ${a.condition ? '<span class="badge">★'+a.condition+'</span>' : ''}
+        ${a.lat      ? '<span class="badge">📍</span>' : ''}
+        ${a.photo    ? '<span class="badge">📷</span>' : ''}
+        ${a.audio    ? '<span class="badge">🎙</span>' : ''}
+        ${a.condition? '<span class="badge">★'+a.condition+'</span>' : ''}
       </div>
     </div>
   `).join("");
@@ -906,11 +817,11 @@ function searchArtifact() {
   const q = document.getElementById("searchID").value.toLowerCase();
   const results = artifacts.filter(a =>
     !q ||
-    (a.id && a.id.toString().includes(q)) ||
-    (a.site && a.site.toLowerCase().includes(q)) ||
-    (a.type && a.type.toLowerCase().includes(q)) ||
+    (a.id      && a.id.toString().includes(q)) ||
+    (a.site    && a.site.toLowerCase().includes(q)) ||
+    (a.type    && a.type.toLowerCase().includes(q)) ||
     (a.context && a.context.toLowerCase().includes(q)) ||
-    (a.notes && a.notes.toLowerCase().includes(q))
+    (a.notes   && a.notes.toLowerCase().includes(q))
   );
   renderDatabase(results);
 }
@@ -928,27 +839,24 @@ function showDetail(id) {
       <div class="detail-id">ID: ${a.id}</div>
       <div class="detail-type">${a.type || "Unknown type"}</div>
       <div class="detail-site">${a.site || "Unknown site"}</div>
-
       <div class="detail-fields">
-        ${a.context ? `<div class="detail-row"><b>Context</b><span>${a.context}</span></div>` : ""}
-        ${a.depth ? `<div class="detail-row"><b>Depth</b><span>${a.depth} cm</span></div>` : ""}
+        ${a.context   ? `<div class="detail-row"><b>Context</b><span>${a.context}</span></div>` : ""}
+        ${a.depth     ? `<div class="detail-row"><b>Depth</b><span>${a.depth} cm</span></div>` : ""}
         ${a.condition ? `<div class="detail-row"><b>Condition</b><span class="stars">${condStars}</span></div>` : ""}
         <div class="detail-row"><b>GPS</b><span>${a.gps}</span></div>
         <div class="detail-row"><b>Date</b><span>${a.date}</span></div>
       </div>
-
       <h3>QR Code</h3>
       <div id="detailQR"></div>
-
-      ${a.notes ? `<h3>Notes</h3><p class="detail-text">${a.notes}</p>` : ""}
-      ${a.voice ? `<h3>Voice Notes</h3><p class="detail-text">${a.voice}</p>` : ""}
-      ${a.audio ? `<h3>Voice Memo</h3><audio controls src="${a.audio}"></audio>` : ""}
-      ${a.photo ? `<h3>Photo</h3><img src="${a.photo}">` : ""}
-      ${a.drawing ? `<h3>Drawing</h3><img src="${a.drawing}" style="background:white">` : ""}
-
       <div class="detail-actions">
+        <button class="secondaryBtn print-btn" onclick="printLabel(${a.id})">🖨 Print QR Label</button>
         <button class="secondaryBtn danger" onclick="deleteArtifact(${a.id})">🗑 Delete</button>
       </div>
+      ${a.notes   ? `<h3>Notes</h3><p class="detail-text">${a.notes}</p>` : ""}
+      ${a.voice   ? `<h3>Voice Notes</h3><p class="detail-text">${a.voice}</p>` : ""}
+      ${a.audio   ? `<h3>Voice Memo</h3><audio controls src="${a.audio}"></audio>` : ""}
+      ${a.photo   ? `<h3>Photo</h3><img src="${a.photo}">` : ""}
+      ${a.drawing ? `<h3>Drawing</h3><img src="${a.drawing}" style="background:white">` : ""}
     </div>
   `;
   new QRCode(document.getElementById("detailQR"), id.toString());
@@ -960,6 +868,129 @@ function deleteArtifact(id) {
   localStorage.setItem("artifacts", JSON.stringify(artifacts));
   showToast("Artifact deleted");
   showDatabase();
+}
+
+/* ── PRINT QR LABEL ──────────────────────────────────────────── */
+function printLabel(id) {
+  const a = artifacts.find(x => x.id === id);
+  if (!a) return;
+
+  // Build a small QR code into an offscreen div, then share as image
+  const offscreen = document.createElement("div");
+  offscreen.style.cssText = "position:fixed;left:-9999px;top:-9999px;background:white;padding:8px;";
+  document.body.appendChild(offscreen);
+
+  new QRCode(offscreen, {
+    text: id.toString(),
+    width: 200,
+    height: 200,
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  // Wait one tick for QRCode to render its canvas/img
+  setTimeout(() => {
+    // QRCode.js renders either a canvas or an img depending on browser
+    const qrCanvas = offscreen.querySelector("canvas");
+    const qrImg    = offscreen.querySelector("img");
+
+    // Draw label onto an off-screen canvas: QR + text lines
+    const labelW = 400, labelH = 280;
+    const canvas = document.createElement("canvas");
+    canvas.width  = labelW;
+    canvas.height = labelH;
+    const ctx = canvas.getContext("2d");
+
+    // White background
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, labelW, labelH);
+
+    // Draw QR
+    const drawQR = (source) => {
+      ctx.drawImage(source, 10, 10, 200, 200);
+
+      // Text block to the right of QR
+      ctx.fillStyle = "#000000";
+
+      // Header bar
+      ctx.fillStyle = "#1a1207";
+      ctx.fillRect(0, 0, labelW, 28);
+      ctx.fillStyle = "#c9a84c";
+      ctx.font = "bold 13px sans-serif";
+      ctx.fillText("ArchaeoSmart", 218, 19);
+
+      // Site name — prominent
+      ctx.fillStyle = "#000000";
+      ctx.font = "bold 14px sans-serif";
+      ctx.fillText((a.site || "Unknown Site").substring(0, 24), 218, 50);
+
+      // Type
+      ctx.font = "12px sans-serif";
+      ctx.fillStyle = "#444444";
+      ctx.fillText((a.type || "Unknown Type").substring(0, 28), 218, 68);
+
+      // Divider
+      ctx.strokeStyle = "#cccccc";
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(218, 75); ctx.lineTo(labelW - 10, 75);
+      ctx.stroke();
+
+      // Detail rows
+      ctx.font = "11px monospace";
+      ctx.fillStyle = "#222222";
+      const lines = [
+        `ID:    ${String(a.id).slice(-10)}`,
+        `Depth: ${a.depth ? a.depth + " cm" : "—"}`,
+        `Cond:  ${a.condition ? "★".repeat(a.condition) + "☆".repeat(5 - a.condition) : "—"}`,
+        `Ctx:   ${(a.context || "—").substring(0, 18)}`,
+        `Date:  ${(a.date || "").substring(0, 18)}`,
+      ];
+      lines.forEach((line, i) => {
+        ctx.fillText(line, 218, 95 + i * 18);
+      });
+
+      // Border
+      ctx.strokeStyle = "#888888";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(1, 1, labelW - 2, labelH - 2);
+
+      // Share the image
+      canvas.toBlob(blob => {
+        document.body.removeChild(offscreen);
+        if (!blob) { showToast("Could not generate label"); return; }
+        const file = new File([blob], `label-${id}.png`, { type: "image/png" });
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({
+            title: "ArchaeoSmart Label",
+            files: [file]
+          }).catch(() => fallbackDownload(blob, id));
+        } else {
+          fallbackDownload(blob, id);
+        }
+      }, "image/png");
+    };
+
+    if (qrCanvas) {
+      drawQR(qrCanvas);
+    } else if (qrImg) {
+      qrImg.onload  = () => drawQR(qrImg);
+      qrImg.onerror = () => { document.body.removeChild(offscreen); showToast("QR render failed"); };
+      if (qrImg.complete) drawQR(qrImg);
+    } else {
+      document.body.removeChild(offscreen);
+      showToast("QR render failed");
+    }
+  }, 80);
+}
+
+function fallbackDownload(blob, id) {
+  const url  = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href     = url;
+  link.download = `archaeosmart-label-${id}.png`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  showToast("Label saved — open in iPrint to print");
 }
 
 /* ── STATISTICS ──────────────────────────────────────────────── */
@@ -975,7 +1006,6 @@ function showStats() {
   });
   const maxType = Math.max(...Object.values(typeCounts), 1);
   const maxSite = Math.max(...Object.values(siteCounts), 1);
-
   document.getElementById("statsContent").innerHTML = `
     <div class="stats-card">
       <h3>By Type</h3>
@@ -1009,11 +1039,27 @@ function showStats() {
   `;
 }
 
+/* ── CSV HELPER ─────────────────────────────────────────────── */
+function csvEscape(val) {
+  const s = String(val === null || val === undefined ? "" : val);
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
 /* ── EXPORT ──────────────────────────────────────────────────── */
 function exportCSV() {
   let csv = "ID,Site,Type,Context,Depth,Condition,GPS,Date,Notes\n";
   artifacts.forEach(a => {
-    csv += `${a.id},"${a.site||""}","${a.type||""}","${a.context||""}","${a.depth||""}","${a.condition||""}","${a.gps||""}","${a.date||""}","${(a.notes||"").replace(/"/g,'""')}"\n`;
+    csv += [
+      a.id,
+      csvEscape(a.site),
+      csvEscape(a.type),
+      csvEscape(a.context),
+      csvEscape(a.depth),
+      csvEscape(a.condition),
+      csvEscape(a.gps),
+      csvEscape(a.date),
+      csvEscape(a.notes)
+    ].join(",") + "\n";
   });
   let blob = new Blob([csv], {type:"text/csv"});
   let link = document.createElement("a");
@@ -1031,19 +1077,19 @@ function getLocation() {
   gpsField.innerText = "Acquiring GPS…";
   if (!navigator.geolocation) { gpsField.innerText = "GPS not supported"; return; }
   navigator.geolocation.getCurrentPosition(
-    function(pos) {
+    pos => {
       gpsField.innerText = pos.coords.latitude.toFixed(6)+","+pos.coords.longitude.toFixed(6);
       showToast("📍 GPS acquired");
     },
-    function(err) { gpsField.innerText = "Unable to get GPS: " + err.message; },
+    err => { gpsField.innerText = "Unable to get GPS: " + err.message; },
     {enableHighAccuracy:true, timeout:20000, maximumAge:0}
   );
 }
 
-/* ── VOICE TEXT ──────────────────────────────────────────────── */
+/* ── VOICE TEXT (dictation in artifact form) ─────────────────── */
 function startDictation() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { alert("Speech recognition not supported"); return; }
+  if (!SR) { showToast("Speech recognition not supported in this browser"); return; }
   recognition = new SR();
   recognition.lang = "en-US";
   recognition.continuous = true;
@@ -1058,7 +1104,7 @@ function stopDictation() {
   if (recognition) { recognition.stop(); recognition = null; showToast("Dictation stopped"); }
 }
 
-/* ── AUDIO ───────────────────────────────────────────────────── */
+/* ── PHOTO ───────────────────────────────────────────────────── */
 function setupPhoto() {
   document.getElementById("photo").onchange = function(e) {
     if (!e.target.files[0]) return;
@@ -1072,6 +1118,7 @@ function setupPhoto() {
   };
 }
 
+/* ── AUDIO ───────────────────────────────────────────────────── */
 async function startRecording() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({audio:true});
@@ -1090,7 +1137,7 @@ async function startRecording() {
     };
     audioRecorder.start();
     showToast("🎙 Recording…");
-  } catch(err) { alert("Microphone permission required"); }
+  } catch(err) { showToast("Microphone access denied — please allow in browser settings"); }
 }
 
 function stopRecording() {
@@ -1100,11 +1147,11 @@ function stopRecording() {
 /* ── CANVAS ──────────────────────────────────────────────────── */
 function resizeCanvas(canvas) {
   const rect = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = rect.width * dpr;
+  const dpr  = window.devicePixelRatio || 1;
+  canvas.width  = rect.width  * dpr;
   canvas.height = rect.height * dpr;
   const ctx = canvas.getContext("2d");
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.setTransform(1,0,0,1,0,0);
   ctx.scale(dpr, dpr);
 }
 
@@ -1118,28 +1165,23 @@ function setupMainCanvasPreview() {
 function renderMainCanvasPreview() {
   const c = document.getElementById("canvas");
   if (!c) return;
-
   resizeCanvas(c);
-  const ctx = c.getContext("2d");
+  const ctx  = c.getContext("2d");
   const rect = c.getBoundingClientRect();
-
   ctx.clearRect(0, 0, rect.width, rect.height);
-
   if (mainCanvasPreviewData) {
     const img = new Image();
     img.onload = function() {
       const fit = containSize(img.width, img.height, rect.width, rect.height);
-      const dx = (rect.width - fit.w) / 2;
-      const dy = (rect.height - fit.h) / 2;
-      ctx.drawImage(img, dx, dy, fit.w, fit.h);
+      ctx.drawImage(img, (rect.width-fit.w)/2, (rect.height-fit.h)/2, fit.w, fit.h);
     };
     img.src = mainCanvasPreviewData;
   }
 }
 
 function containSize(srcW, srcH, maxW, maxH) {
-  const scale = Math.min(maxW / srcW, maxH / srcH);
-  return { w: srcW * scale, h: srcH * scale };
+  const scale = Math.min(maxW/srcW, maxH/srcH);
+  return { w: srcW*scale, h: srcH*scale };
 }
 
 function enableDrawing(canvas, allowDrawing) {
@@ -1147,94 +1189,83 @@ function enableDrawing(canvas, allowDrawing) {
   const ctx = canvas.getContext("2d");
   resizeCanvas(canvas);
   let drawing = false;
-
   function getPos(e) {
     const rect = canvas.getBoundingClientRect();
     if (e.touches) return {x:e.touches[0].clientX-rect.left, y:e.touches[0].clientY-rect.top};
     return {x:e.clientX-rect.left, y:e.clientY-rect.top};
   }
-
   function start(e) {
     if (!allowDrawing) return;
     drawing = true;
     const p = getPos(e);
-    ctx.beginPath();
-    ctx.moveTo(p.x,p.y);
+    ctx.beginPath(); ctx.moveTo(p.x, p.y);
   }
-
   function draw(e) {
     if (!allowDrawing || !drawing) return;
     e.preventDefault();
     const p = getPos(e);
-    ctx.lineTo(p.x,p.y);
+    ctx.lineTo(p.x, p.y);
     ctx.strokeStyle = currentColor;
-    ctx.lineWidth = currentBrush;
+    ctx.lineWidth   = currentBrush;
     ctx.globalAlpha = currentOpacity;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
+    ctx.lineCap     = "round";
+    ctx.lineJoin    = "round";
     ctx.stroke();
   }
-
   function stop() {
     if (!allowDrawing) return;
-    drawing = false;
-    ctx.beginPath();
-    ctx.globalAlpha = 1;
+    drawing = false; ctx.beginPath(); ctx.globalAlpha = 1;
   }
-
-  canvas.addEventListener("mousedown", start);
-  canvas.addEventListener("mousemove", draw);
-  canvas.addEventListener("mouseup", stop);
+  canvas.addEventListener("mousedown",  start);
+  canvas.addEventListener("mousemove",  draw);
+  canvas.addEventListener("mouseup",    stop);
   canvas.addEventListener("mouseleave", stop);
   canvas.addEventListener("touchstart", start, {passive:false});
-  canvas.addEventListener("touchmove", draw, {passive:false});
-  canvas.addEventListener("touchend", stop);
+  canvas.addEventListener("touchmove",  draw,  {passive:false});
+  canvas.addEventListener("touchend",   stop);
 }
 
 function clearCanvas() {
   mainCanvasPreviewData = null;
   const c = document.getElementById("canvas");
   const ctx = c.getContext("2d");
-  ctx.clearRect(0,0,c.width,c.height);
+  ctx.clearRect(0, 0, c.width, c.height);
 }
 
 function clearCanvasFull() {
   const c = document.getElementById("canvasFull");
-  c.getContext("2d").clearRect(0,0,c.width,c.height);
+  c.getContext("2d").clearRect(0, 0, c.width, c.height);
 }
 
 function lockBodyScroll() {
   scrollLockY = window.scrollY || window.pageYOffset;
+  document.documentElement.classList.add("no-scroll");
   document.body.classList.add("no-scroll");
   document.body.style.top = `-${scrollLockY}px`;
 }
 
 function unlockBodyScroll() {
+  document.documentElement.classList.remove("no-scroll");
   document.body.classList.remove("no-scroll");
   document.body.style.top = "";
   window.scrollTo(0, scrollLockY);
 }
 
 function openCanvasFullscreen() {
-  const fs = document.getElementById("canvasFullscreen");
+  const fs         = document.getElementById("canvasFullscreen");
   const fullCanvas = document.getElementById("canvasFull");
-
   lockBodyScroll();
   fs.classList.remove("hidden");
-
   requestAnimationFrame(() => {
     resizeCanvas(fullCanvas);
-    const ctx = fullCanvas.getContext("2d");
+    const ctx  = fullCanvas.getContext("2d");
     const rect = fullCanvas.getBoundingClientRect();
     ctx.clearRect(0, 0, rect.width, rect.height);
-
     if (mainCanvasPreviewData) {
       const img = new Image();
       img.onload = function() {
         const fit = containSize(img.width, img.height, rect.width, rect.height);
-        const dx = (rect.width - fit.w) / 2;
-        const dy = (rect.height - fit.h) / 2;
-        ctx.drawImage(img, dx, dy, fit.w, fit.h);
+        ctx.drawImage(img, (rect.width-fit.w)/2, (rect.height-fit.h)/2, fit.w, fit.h);
       };
       img.src = mainCanvasPreviewData;
     }
@@ -1243,11 +1274,16 @@ function openCanvasFullscreen() {
 
 function closeCanvasFullscreen() {
   const fullCanvas = document.getElementById("canvasFull");
-
   if (fullCanvas.width > 0 && fullCanvas.height > 0) {
-    mainCanvasPreviewData = fullCanvas.toDataURL("image/png");
+    // Save at true pixel resolution — avoids any stretch/compression
+    const dpr = window.devicePixelRatio || 1;
+    const exportCanvas = document.createElement("canvas");
+    exportCanvas.width  = fullCanvas.width;
+    exportCanvas.height = fullCanvas.height;
+    const ctx = exportCanvas.getContext("2d");
+    ctx.drawImage(fullCanvas, 0, 0);
+    mainCanvasPreviewData = exportCanvas.toDataURL("image/png");
   }
-
   document.getElementById("canvasFullscreen").classList.add("hidden");
   unlockBodyScroll();
   renderMainCanvasPreview();
@@ -1257,11 +1293,7 @@ function closeCanvasFullscreen() {
 function startScanner() {
   hideAll();
   document.getElementById("scannerScreen").classList.remove("hidden");
-
-  if (scannerInstance) {
-    stopScanner();
-  }
-
+  if (scannerInstance) stopScanner();
   scannerInstance = new Html5Qrcode("reader");
   scannerInstance.start(
     {facingMode:"environment"},
@@ -1272,17 +1304,12 @@ function startScanner() {
       else { showToast("QR scanned — artifact not found"); }
       stopScanner();
     }
-  ).catch(err => {
-    console.error("Scanner error:", err);
-    showToast("Unable to start scanner");
-  });
+  ).catch(err => { console.error("Scanner error:", err); showToast("Unable to start scanner"); });
 }
 
 function stopScanner() {
   if (scannerInstance) {
-    scannerInstance.stop().catch(()=>{}).finally(() => {
-      scannerInstance = null;
-    });
+    scannerInstance.stop().catch(()=>{}).finally(() => { scannerInstance = null; });
   }
 }
 
@@ -1296,9 +1323,7 @@ function showMap() {
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19}).addTo(mapInstance);
   artifacts.forEach((a, i) => {
     if (!a.lat || !a.lng) return;
-    let lat = a.lat+(i*0.00005);
-    let lng = a.lng+(i*0.00005);
-    let marker = L.marker([lat,lng]).addTo(mapInstance);
+    let marker = L.marker([a.lat+(i*0.00005), a.lng+(i*0.00005)]).addTo(mapInstance);
     marker.bindPopup(`<b>${a.type}</b><br>Site: ${a.site}<br>Depth: ${a.depth} cm<br><button onclick="showDetail(${a.id})">Open</button>`);
   });
 }
@@ -1308,17 +1333,14 @@ window.addEventListener("resize", () => {
   const c = document.getElementById("canvasFull");
   if (c && !document.getElementById("canvasFullscreen").classList.contains("hidden")) {
     resizeCanvas(c);
-    const ctx = c.getContext("2d");
+    const ctx  = c.getContext("2d");
     const rect = c.getBoundingClientRect();
     ctx.clearRect(0, 0, rect.width, rect.height);
-
     if (mainCanvasPreviewData) {
       const img = new Image();
       img.onload = function() {
         const fit = containSize(img.width, img.height, rect.width, rect.height);
-        const dx = (rect.width - fit.w) / 2;
-        const dy = (rect.height - fit.h) / 2;
-        ctx.drawImage(img, dx, dy, fit.w, fit.h);
+        ctx.drawImage(img, (rect.width-fit.w)/2, (rect.height-fit.h)/2, fit.w, fit.h);
       };
       img.src = mainCanvasPreviewData;
     }
