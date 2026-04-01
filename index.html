@@ -23,7 +23,7 @@
     <div class="header-center">
       <h1>ArchaeoSmart</h1>
       <span class="header-sub">Field Recording System</span>
-      <span class="header-version">v2.3.2</span>
+      <span class="header-version">v2.3</span>
     </div>
     <button class="fieldModeBtn" id="fieldModeBtn" onclick="toggleFieldMode()" title="Field Mode">☀</button>
   </header>
@@ -72,7 +72,10 @@
 
   <!-- VOICE CAPTURE SCREEN -->
   <div id="voiceCaptureScreen" class="screen hidden">
-    <h2>Voice Interview</h2>
+    <div class="vi-topbar">
+      <h2>Voice Interview</h2>
+      <button class="vi-stop-btn" onclick="viAbortAndGoHome()">✕ Stop &amp; Exit</button>
+    </div>
 
     <div class="vi-progress">
       <div class="vi-progress-bar" id="viProgressBar"></div>
