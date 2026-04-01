@@ -23,6 +23,7 @@ let scrollLockY = 0;
 /* interview state guards */
 let viConfirmSessionId = 0;
 let viAnswerSessionId = 0;
+let viKilled = false; // set true during abort to block all callbacks
 
 /* ── TYPE CONFIG ─────────────────────────────────────────────── */
 const TYPES = [
@@ -80,6 +81,7 @@ function showHome() {
   hideAll();
   stopScanner();
   // Always kill voice interview when navigating away
+  viKilled = true;
   viCancelAllListening();
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   document.getElementById("homeScreen").classList.remove("hidden");
@@ -393,8 +395,9 @@ function viSpeak(text, onDone) {
             || voices.find(v => v.lang === "en-US")
             || voices.find(v => v.lang.startsWith("en"));
   if (pref) utt.voice = pref;
-  utt.onend  = () => { if (onDone) onDone(); };
-  utt.onerror = () => { if (onDone) onDone(); };
+  // Guard: iOS fires onend when cancelled — viKilled blocks the callback chain
+  utt.onend  = () => { if (!viKilled && onDone) onDone(); };
+  utt.onerror = () => { if (!viKilled && onDone) onDone(); };
   viState.tts = utt;
   window.speechSynthesis.speak(utt);
 }
@@ -408,12 +411,15 @@ function showVoiceCapture() {
 }
 
 function viAbortAndGoHome() {
+  // Set killed flag FIRST — blocks any onend/onerror callbacks from restarting the chain
+  viKilled = true;
   viCancelAllListening();
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   showHome();
 }
 
 function viReset() {
+  viKilled = false; // allow new interview to run
   viCancelAllListening();
   if (window.speechSynthesis) window.speechSynthesis.cancel();
 
@@ -459,6 +465,7 @@ function viStartInterview() {
 }
 
 function viAskStep() {
+  if (viKilled) return; // abort in progress
   viCancelAllListening();
   const step = VI_STEPS[viState.step];
   const pct  = (viState.step / VI_STEPS.length) * 100;
@@ -480,6 +487,7 @@ function viAskStep() {
 
 /* ── Listening for main answer ──────────────────────────────── */
 function viListenForAnswer() {
+  if (viKilled) return; // abort in progress
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { showToast("Speech recognition not supported"); return; }
 
