@@ -928,148 +928,159 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
 }
 
 /* ── MOBILE LANDSCAPE ── */
-/* Targets phones flipped sideways: wide but short viewport, not a tablet/desktop */
 @media (max-height: 450px) and (orientation: landscape) {
 
-  /* Compact header — shrink it so it doesn't eat half the screen */
+  /* Full screen — no wasted space */
+  html, body { height: 100%; overflow-x: hidden; }
+
+  .app {
+    max-width: 100%;
+    width: 100%;
+    min-height: 100vh;
+    padding: 6px 10px;
+  }
+
+  /* Slim header */
   header {
-    padding: 6px 12px;
+    padding: 5px 10px;
     margin-bottom: 8px;
     border-radius: 8px;
   }
 
   header h1 { font-size: 1rem; }
-  .header-sub { display: none; }
-  .header-version { display: none; }
-  .homeBtn, .fieldModeBtn { min-height: 36px; min-width: 36px; padding: 6px 10px; font-size: 0.95rem; }
+  .header-sub, .header-version { display: none; }
+  .homeBtn, .fieldModeBtn {
+    min-height: 34px; min-width: 34px;
+    padding: 5px 9px; font-size: 0.9rem;
+  }
 
-  /* App padding tighter */
-  .app { padding: 8px 10px; }
-
-  /* Stats strip — single row, smaller */
+  /* Stats — compact single row */
   .stats-strip {
     display: flex;
     gap: 6px;
     margin-bottom: 8px;
   }
 
-  .stat-box { padding: 5px 4px; }
-  .stat-box span { font-size: 1rem; }
-  .stat-box label { font-size: 0.5rem; }
+  .stat-box { padding: 4px 6px; }
+  .stat-box span  { font-size: 0.95rem; }
+  .stat-box label { font-size: 0.48rem; }
 
-  /* Home grid — all 6 buttons in one row */
+  /* ── HOME GRID: 3 columns × 2 rows, wide buttons ── */
   .home-grid {
-    grid-template-columns: repeat(6, 1fr);
-    gap: 6px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
   }
 
   .mainButton {
-    height: 64px;
-    gap: 3px;
-    border-radius: 8px;
+    height: 72px;
+    gap: 4px;
+    border-radius: 10px;
+    flex-direction: row;
+    justify-content: center;
+    padding: 0 10px;
+    gap: 10px;
   }
 
-  .btn-icon  { font-size: 1.2rem; }
-  .btn-label { font-size: 0.58rem; letter-spacing: 0.02em; }
-
-  /* Cards — less padding, tighter spacing */
-  .card { padding: 10px 12px; margin-top: 8px; }
-  .card h3 { font-size: 0.65rem; margin-bottom: 6px; padding-bottom: 4px; }
-  .card label { margin-top: 6px; }
+  .btn-icon  { font-size: 1.4rem; flex-shrink: 0; }
+  .btn-label { font-size: 0.72rem; letter-spacing: 0.03em; text-align: left; }
 
   /* Screen headings */
-  .screen > h2 { font-size: 0.95rem; margin-bottom: 8px; padding-bottom: 6px; }
+  .screen > h2 {
+    font-size: 0.9rem;
+    margin-bottom: 7px;
+    padding-bottom: 5px;
+  }
 
-  /* Artifact form — two columns side by side */
+  /* Cards */
+  .card { padding: 8px 12px; margin-top: 8px; }
+  .card h3 { font-size: 0.62rem; margin-bottom: 5px; padding-bottom: 4px; }
+  .card label { margin-top: 6px; font-size: 0.6rem; }
+
+  /* Inputs */
+  textarea,
+  input:not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="checkbox"]),
+  select {
+    padding: 7px 10px;
+    font-size: 0.9rem;
+  }
+
+  /* Artifact form — two columns */
   #artifactScreen {
     display: grid;
     grid-template-columns: 1fr 1fr;
     column-gap: 12px;
     align-items: start;
   }
-
-  #artifactScreen > h2   { grid-column: 1 / -1; }
-  #artifactScreen > .save { grid-column: 1 / -1; padding: 12px; font-size: 0.85rem; }
-
+  #artifactScreen > h2    { grid-column: 1 / -1; }
+  #artifactScreen > .save { grid-column: 1 / -1; padding: 11px; font-size: 0.82rem; }
   #artifactScreen > .card:has(#qrcode),
   #artifactScreen > .card:has(canvas),
   #artifactScreen > .card:has(#notes) { grid-column: 1 / -1; }
 
-  /* Type grid — 6 columns */
   .type-grid { grid-template-columns: repeat(6, 1fr); gap: 4px; }
-  .type-btn { min-height: 44px; font-size: 0.7rem; }
-  .type-btn span { font-size: 1rem; }
+  .type-btn  { min-height: 42px; font-size: 0.68rem; }
+  .type-btn span { font-size: 0.95rem; }
+  .cond-btn  { min-height: 40px; font-size: 0.88rem; }
 
-  /* Condition row — tighter */
-  .cond-btn { min-height: 42px; font-size: 0.9rem; }
+  .big-tap, .secondaryBtn { min-height: 38px; padding: 7px 12px; font-size: 0.7rem; }
+  .save { margin-top: 8px; min-height: 42px; }
 
-  /* Inputs slightly smaller */
-  textarea, input:not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="checkbox"]), select {
-    padding: 7px 10px;
-    font-size: 0.92rem;
-  }
-
-  /* Buttons */
-  .big-tap, .secondaryBtn { min-height: 40px; padding: 8px 12px; font-size: 0.72rem; }
-  .save { margin-top: 10px; min-height: 44px; }
-
-  /* Voice interview — side by side */
-  #voiceCaptureScreen {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    column-gap: 16px;
-    align-items: start;
-  }
-
-  #voiceCaptureScreen > h2 { grid-column: 1 / -1; }
-
-  .vi-question-card { padding: 12px; margin-bottom: 8px; }
-  .vi-question-icon { font-size: 1.4rem; margin-bottom: 4px; }
-  .vi-question-text { font-size: 0.85rem; }
-  .vi-example { font-size: 0.72rem; }
-  .vi-transcript { min-height: 32px; padding: 6px 10px; font-size: 0.88rem; }
-
-  /* Voice big button — smaller in landscape */
-  .voice-big-btn-wrap { padding: 8px 0; }
-  .voice-big-btn { width: 100px; height: 100px; }
-  #voiceCaptureIcon  { font-size: 1.8rem; }
-  #voiceCaptureLabel { font-size: 0.6rem; }
+  canvas { height: 110px; }
 
   /* Database — two columns */
   #artifactList {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: 7px;
   }
-  #artifactList .artifactCard { margin-top: 0; padding: 8px 10px; }
-  .card-icon { font-size: 1.2rem; }
-  .card-type { font-size: 0.85rem; }
-  .card-meta { font-size: 0.72rem; }
-  .card-date { font-size: 0.65rem; }
+  #artifactList .artifactCard { margin-top: 0; padding: 7px 10px; }
+  .card-icon { font-size: 1.1rem; }
+  .card-type { font-size: 0.82rem; }
+  .card-meta { font-size: 0.7rem; }
+  .card-date { font-size: 0.62rem; }
 
   /* Stats — two columns */
   #statsContent {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    gap: 8px;
   }
   #statsContent .stats-card:last-child { grid-column: 1 / -1; }
-  .stats-card { padding: 10px; margin-bottom: 0; }
+  .stats-card { padding: 9px; margin-bottom: 0; }
 
-  /* Map — full available height */
-  #map { height: calc(100vh - 100px); min-height: 200px; }
+  /* Voice interview */
+  #voiceCaptureScreen {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    column-gap: 14px;
+    align-items: start;
+  }
+  #voiceCaptureScreen > h2 { grid-column: 1 / -1; }
+  .vi-question-card  { padding: 10px; margin-bottom: 7px; }
+  .vi-question-icon  { font-size: 1.3rem; margin-bottom: 3px; }
+  .vi-question-text  { font-size: 0.82rem; }
+  .vi-example        { font-size: 0.7rem; }
+  .vi-transcript     { min-height: 28px; padding: 5px 9px; font-size: 0.85rem; margin-bottom: 7px; }
+  .voice-big-btn-wrap { padding: 6px 0; }
+  .voice-big-btn      { width: 90px; height: 90px; }
+  #voiceCaptureIcon   { font-size: 1.6rem; }
+  #voiceCaptureLabel  { font-size: 0.56rem; }
+
+  /* Map — full height */
+  #map { height: calc(100vh - 90px); min-height: 180px; }
 
   /* Scanner */
-  #reader { min-height: 200px; }
+  #reader { min-height: 180px; }
 
-  /* Detail card */
-  .detailCard { padding: 10px 12px; }
-  .detail-type { font-size: 1rem; }
-  .detail-actions { margin-top: 8px; margin-bottom: 8px; }
+  /* Detail */
+  .detailCard       { padding: 9px 12px; }
+  .detail-type      { font-size: 0.95rem; }
+  .detail-actions   { margin-top: 7px; margin-bottom: 7px; }
+  .detail-actions .secondaryBtn { min-height: 36px; padding: 6px 10px; }
 
-  /* Toast stays visible */
-  #toast { bottom: 10px; font-size: 0.72rem; padding: 7px 14px; }
+  /* Toast */
+  #toast { bottom: 8px; font-size: 0.7rem; padding: 6px 13px; }
 
-  /* Canvas in artifact form — shorter */
-  canvas { height: 120px; }
+  /* Backup bar */
+  .backup-bar { padding: 6px 10px; font-size: 0.75rem; margin-top: 8px; }
 }
