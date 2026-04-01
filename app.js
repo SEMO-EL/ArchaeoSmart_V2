@@ -79,6 +79,9 @@ function hideAll() {
 function showHome() {
   hideAll();
   stopScanner();
+  // Always kill voice interview when navigating away
+  viCancelAllListening();
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
   document.getElementById("homeScreen").classList.remove("hidden");
   updateHomeStats();
   checkBackupReminder();
@@ -402,6 +405,12 @@ function showVoiceCapture() {
   stopScanner();
   document.getElementById("voiceCaptureScreen").classList.remove("hidden");
   viReset();
+}
+
+function viAbortAndGoHome() {
+  viCancelAllListening();
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  showHome();
 }
 
 function viReset() {
