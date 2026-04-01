@@ -904,35 +904,43 @@ function printLabel(id) {
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, labelW, labelH);
 
-    // Draw QR
+    // Draw label
     const drawQR = (source) => {
-      ctx.drawImage(source, 10, 10, 200, 200);
-
-      // Text block to the right of QR
-      ctx.fillStyle = "#000000";
-
-      // Header bar
+      // 1. Header bar first (full width, top)
       ctx.fillStyle = "#1a1207";
-      ctx.fillRect(0, 0, labelW, 28);
+      ctx.fillRect(0, 0, labelW, 32);
+
+      // "ArchaeoSmart" title — left side of header, clearly above QR
       ctx.fillStyle = "#c9a84c";
-      ctx.font = "bold 13px sans-serif";
-      ctx.fillText("ArchaeoSmart", 218, 19);
+      ctx.font = "bold 14px sans-serif";
+      ctx.fillText("ArchaeoSmart", 10, 22);
+
+      // Artifact type — right side of header
+      ctx.font = "11px sans-serif";
+      ctx.fillStyle = "#a89880";
+      ctx.textAlign = "right";
+      ctx.fillText((a.type || "").substring(0, 22), labelW - 10, 22);
+      ctx.textAlign = "left";
+
+      // 2. QR code below the header bar, never overlapping it
+      const qrY = 40;
+      const qrSize = 200;
+      ctx.drawImage(source, 10, qrY, qrSize, qrSize);
+
+      // 3. Text block to the right of QR
+      const textX = qrSize + 20;
 
       // Site name — prominent
       ctx.fillStyle = "#000000";
-      ctx.font = "bold 14px sans-serif";
-      ctx.fillText((a.site || "Unknown Site").substring(0, 24), 218, 50);
-
-      // Type
-      ctx.font = "12px sans-serif";
-      ctx.fillStyle = "#444444";
-      ctx.fillText((a.type || "Unknown Type").substring(0, 28), 218, 68);
+      ctx.font = "bold 13px sans-serif";
+      const siteStr = (a.site || "Unknown Site").substring(0, 20);
+      ctx.fillText(siteStr, textX, 58);
 
       // Divider
       ctx.strokeStyle = "#cccccc";
       ctx.lineWidth = 0.5;
       ctx.beginPath();
-      ctx.moveTo(218, 75); ctx.lineTo(labelW - 10, 75);
+      ctx.moveTo(textX, 65); ctx.lineTo(labelW - 10, 65);
       ctx.stroke();
 
       // Detail rows
@@ -942,11 +950,11 @@ function printLabel(id) {
         `ID:    ${String(a.id).slice(-10)}`,
         `Depth: ${a.depth ? a.depth + " cm" : "—"}`,
         `Cond:  ${a.condition ? "★".repeat(a.condition) + "☆".repeat(5 - a.condition) : "—"}`,
-        `Ctx:   ${(a.context || "—").substring(0, 18)}`,
-        `Date:  ${(a.date || "").substring(0, 18)}`,
+        `Ctx:   ${(a.context || "—").substring(0, 16)}`,
+        `Date:  ${(a.date || "").substring(0, 16)}`,
       ];
       lines.forEach((line, i) => {
-        ctx.fillText(line, 218, 95 + i * 18);
+        ctx.fillText(line, textX, 84 + i * 19);
       });
 
       // Border
