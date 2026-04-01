@@ -1,4 +1,4 @@
-/* ArchaeoSmart v2.0.0 — app.js */
+/* ArchaeoSmart v2.3 — app.js */
 
 let artifacts = JSON.parse(localStorage.getItem("artifacts")) || [];
 let currentID = null;
@@ -1127,29 +1127,70 @@ function setupPhoto() {
 }
 
 /* ── AUDIO ───────────────────────────────────────────────────── */
+function getSupportedMimeType() {
+  // iOS Safari supports mp4, most others support webm
+  const types = [
+    "audio/mp4",
+    "audio/aac",
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/ogg",
+  ];
+  for (const type of types) {
+    if (MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return ""; // let browser pick
+}
+
 async function startRecording() {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-    audioRecorder = new MediaRecorder(stream);
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showToast("Audio recording not supported in this browser"); return;
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mimeType = getSupportedMimeType();
+    const options = mimeType ? { mimeType } : {};
+
+    try {
+      audioRecorder = new MediaRecorder(stream, options);
+    } catch(e) {
+      // Fallback — let browser pick format with no options
+      audioRecorder = new MediaRecorder(stream);
+    }
+
     audioChunks = [];
-    audioRecorder.ondataavailable = e => audioChunks.push(e.data);
+    audioRecorder.ondataavailable = e => {
+      if (e.data && e.data.size > 0) audioChunks.push(e.data);
+    };
+
     audioRecorder.onstop = () => {
-      const blob = new Blob(audioChunks, {type:"audio/webm"});
+      const mime = audioRecorder.mimeType || mimeType || "audio/webm";
+      const blob = new Blob(audioChunks, { type: mime });
       const reader = new FileReader();
       reader.onloadend = () => {
         audioData = reader.result;
-        document.getElementById("audioPlayback").src = audioData;
+        const player = document.getElementById("audioPlayback");
+        player.src = audioData;
+        player.load(); // force iOS to register the new source
       };
       reader.readAsDataURL(blob);
       stream.getTracks().forEach(track => track.stop());
     };
-    audioRecorder.start();
+
+    // iOS requires timeslice on start() to fire ondataavailable reliably
+    audioRecorder.start(100);
     showToast("🎙 Recording…");
-  } catch(err) { showToast("Microphone access denied — please allow in browser settings"); }
+  } catch(err) {
+    showToast("Microphone access denied — please allow in browser settings");
+  }
 }
 
 function stopRecording() {
-  if (audioRecorder) { audioRecorder.stop(); showToast("Recording saved"); }
+  if (audioRecorder && audioRecorder.state !== "inactive") {
+    audioRecorder.stop();
+    showToast("Recording saved");
+  }
 }
 
 /* ── CANVAS ──────────────────────────────────────────────────── */
