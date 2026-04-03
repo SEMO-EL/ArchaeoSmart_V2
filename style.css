@@ -1246,7 +1246,7 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
   #artifactScreen {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    column-gap: 12px;
+    column-gap: 2px;
     align-items: start;
   }
   #artifactScreen > h2    { grid-column: 1 / -1; }
