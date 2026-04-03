@@ -967,14 +967,192 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
 /* ── MOBILE LANDSCAPE ── */
 @media (max-height: 450px) and (orientation: landscape) {
 
-  /* Full screen — no wasted space */
+  /* ── GLOBAL: fill the whole screen ── */
   html, body { height: 100%; overflow-x: hidden; }
 
   .app {
-    max-width: 100%;
-    width: 100%;
+    max-width: none;
+    width: 100vw;
     min-height: 100vh;
     padding: 6px 10px;
+    border: none !important;
+  }
+
+  /* ── SLIM HEADER ── */
+  header {
+    padding: 5px 10px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+  }
+  header h1 { font-size: 1rem; }
+  .header-sub, .header-version { display: none; }
+  .homeBtn, .fieldModeBtn {
+    min-height: 34px; min-width: 34px;
+    padding: 5px 9px; font-size: 0.9rem;
+  }
+
+  /* ── GLOBAL TYPOGRAPHY ── */
+  .screen > h2 { font-size: 0.9rem; margin-bottom: 7px; padding-bottom: 5px; }
+  .card { padding: 8px 12px; margin-top: 8px; }
+  .card h3 { font-size: 0.62rem; margin-bottom: 5px; padding-bottom: 4px; }
+  .card label { margin-top: 6px; font-size: 0.6rem; }
+  textarea,
+  input:not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="checkbox"]),
+  select { padding: 7px 10px; font-size: 0.9rem; }
+  .big-tap, .secondaryBtn { min-height: 38px; padding: 7px 12px; font-size: 0.7rem; }
+  .save { margin-top: 8px; min-height: 42px; }
+  canvas { height: 110px; }
+  #toast { bottom: 8px; font-size: 0.7rem; padding: 6px 13px; }
+
+  /* ── HOME: stats row + 3×2 wide buttons ── */
+  .stats-strip { display: flex; gap: 6px; margin-bottom: 8px; }
+  .stat-box { padding: 4px 6px; }
+  .stat-box span  { font-size: 0.95rem; }
+  .stat-box label { font-size: 0.48rem; }
+
+  .home-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .mainButton {
+    height: 72px;
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: 0 16px;
+    gap: 12px;
+    border-radius: 10px;
+  }
+  .btn-icon  { font-size: 1.4rem; flex-shrink: 0; }
+  .btn-label { font-size: 0.72rem; letter-spacing: 0.03em; text-align: left; }
+  .backup-bar { padding: 6px 10px; font-size: 0.75rem; margin-top: 8px; }
+
+  /* ── ARTIFACT FORM: left col = fields, right col = extras ── */
+  #artifactScreen {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 14px;
+    align-items: start;
+  }
+  #artifactScreen > h2    { grid-column: 1 / -1; }
+  #artifactScreen > .save { grid-column: 1 / -1; padding: 11px; font-size: 0.82rem; }
+  /* QR, canvas, notes span full width */
+  #artifactScreen > .card:has(#qrcode),
+  #artifactScreen > .card:has(canvas),
+  #artifactScreen > .card:has(#notes) { grid-column: 1 / -1; }
+
+  .type-grid { grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  .type-btn  { min-height: 42px; font-size: 0.68rem; }
+  .type-btn span { font-size: 0.95rem; }
+  .cond-btn  { min-height: 40px; font-size: 0.88rem; }
+
+  /* ── ARCHIVE: search bar + 2-col card list ── */
+  #databaseScreen {
+    display: flex;
+    flex-direction: column;
+  }
+  .db-toolbar { margin-bottom: 8px; }
+  #artifactList {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    align-items: start;
+  }
+  #artifactList .artifactCard { margin-top: 0; padding: 7px 10px; }
+  .card-icon { font-size: 1.1rem; }
+  .card-type { font-size: 0.82rem; }
+  .card-meta { font-size: 0.7rem; }
+  .card-date { font-size: 0.62rem; }
+
+  /* ── DETAIL: left = QR + meta, right = content ── */
+  #detailScreen {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    column-gap: 14px;
+    align-items: start;
+  }
+  /* Back button spans full width */
+  #detailScreen > .secondaryBtn:first-child {
+    grid-column: 1 / -1;
+    margin-bottom: 8px;
+  }
+  /* Detail card fills right column */
+  #detailScreen > #artifactDetail { grid-column: 2; grid-row: 2; }
+  /* QR shown in left column via detailCard internal layout */
+  .detailCard { padding: 9px 12px; }
+  .detail-type { font-size: 0.95rem; }
+  .detail-actions { margin-top: 7px; margin-bottom: 7px; flex-wrap: wrap; }
+  .detail-actions .secondaryBtn { min-height: 36px; padding: 6px 10px; margin-top: 0; }
+
+  /* ── STATISTICS: 2 charts side by side, summary below ── */
+  #statsScreen {
+    display: flex;
+    flex-direction: column;
+  }
+  #statsContent {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    align-items: start;
+  }
+  #statsContent .stats-card:last-child { grid-column: 1 / -1; }
+  .stats-card { padding: 9px; margin-bottom: 0; }
+  .stats-card h3 { margin-bottom: 8px; }
+  .stat-bar-row { margin-bottom: 5px; }
+  .stat-bar-label { font-size: 0.72rem; min-width: 80px; }
+
+  /* ── MAP: full remaining height ── */
+  #map { height: calc(100vh - 90px); min-height: 180px; }
+
+  /* ── SCANNER: centred, full remaining height ── */
+  #reader { min-height: 200px; max-width: 100%; margin: 0; }
+  #reader video { width: 100% !important; height: calc(100vh - 100px) !important; object-fit: cover; }
+
+  /* ── VOICE INTERVIEW: mic left, content right ── */
+  #voiceCaptureScreen {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    column-gap: 14px;
+    align-items: start;
+  }
+  /* Topbar (title + stop button) spans full width */
+  #voiceCaptureScreen > .vi-topbar { grid-column: 1 / -1; }
+  /* Progress + step label span full width */
+  #voiceCaptureScreen > .vi-progress,
+  #voiceCaptureScreen > .vi-step-label { grid-column: 1 / -1; }
+  /* Mic button in left column, rows 3+ */
+  #voiceCaptureScreen > .voice-big-btn-wrap {
+    grid-column: 1;
+    grid-row: 3 / 8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  /* Everything else in right column */
+  #voiceCaptureScreen > .vi-question-card { grid-column: 2; grid-row: 3; }
+  #voiceCaptureScreen > .vi-transcript    { grid-column: 2; grid-row: 4; }
+  #voiceCaptureScreen > .vi-heard         { grid-column: 2; grid-row: 5; }
+  #voiceCaptureScreen > .vi-answers       { grid-column: 2; grid-row: 6; }
+  #voiceCaptureScreen > .parsed-actions   { grid-column: 2; grid-row: 7; }
+
+  .vi-question-card { padding: 10px; margin-bottom: 7px; }
+  .vi-question-icon { font-size: 1.3rem; margin-bottom: 3px; }
+  .vi-question-text { font-size: 0.82rem; }
+  .vi-example       { font-size: 0.7rem; }
+  .vi-transcript    { min-height: 28px; padding: 5px 9px; font-size: 0.85rem; margin-bottom: 7px; }
+  .vi-topbar h2     { font-size: 0.9rem; }
+  .vi-stop-btn      { font-size: 0.62rem; padding: 5px 10px; min-height: 30px; }
+
+  .voice-big-btn      { width: 90px; height: 90px; }
+  #voiceCaptureIcon   { font-size: 1.6rem; }
+  #voiceCaptureLabel  { font-size: 0.56rem; }
+
+  .vi-btn-accept, .vi-btn-retry, .vi-btn-skip { min-height: 38px; font-size: 0.66rem; padding: 7px 6px; }
+}
+
+  .app {
+    max-width: none;
+    width: 100vw;
+    min-height: 100vh;
+    padding: 6px 10px;
+    border: none !important;
   }
 
   /* Slim header */
@@ -1120,4 +1298,3 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
 
   /* Backup bar */
   .backup-bar { padding: 6px 10px; font-size: 0.75rem; margin-top: 8px; }
-}
