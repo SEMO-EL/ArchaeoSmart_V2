@@ -1018,11 +1018,20 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
   .stat-box span  { font-size: 0.95rem; }
   .stat-box label { font-size: 0.48rem; }
 
+  #homeScreen {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 52px); /* full viewport minus slim header */
+  }
+
+  .stats-strip { flex-shrink: 0; }
+
   .home-grid {
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(2, 1fr);
     gap: 8px;
-    height: calc(100vh - 60px); /* fill remaining height after header + stats */
+    flex: 1; /* take all remaining height */
+    min-height: 0;
   }
   .mainButton {
     height: 100%;
