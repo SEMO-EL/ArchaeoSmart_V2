@@ -17,6 +17,7 @@
   --r:         6px;
   --rl:        12px;
   --shadow:    0 4px 24px rgba(0,0,0,0.5);
+  --vh:        1vh;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -40,7 +41,6 @@ body.no-scroll {
   width: 100%;
 }
 
-/* Lock html element too for Safari/iOS reliability */
 html.no-scroll {
   overflow: hidden;
   touch-action: none;
@@ -469,7 +469,7 @@ canvas {
   overflow: hidden;
   touch-action: none;
   overscroll-behavior: none;
-  -webkit-overflow-scrolling: auto; /* disable momentum scroll on iOS */
+  -webkit-overflow-scrolling: auto;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -502,7 +502,7 @@ canvas {
 #canvasFull {
   flex: 1;
   width: 100%;
-  height: 0; /* flex:1 handles the actual height — prevents stretch */
+  height: 0;
   min-height: 0;
   display: block;
   touch-action: none;
@@ -864,13 +864,13 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
 /* ── TABLET ── */
-@media(min-width:520px) {
+@media (min-width: 520px) {
   body { background: var(--ink); }
   .app { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
 }
 
 /* ── DESKTOP ── */
-@media(min-width:900px) {
+@media (min-width: 900px) {
   body {
     background: var(--ink);
     display: flex;
@@ -964,10 +964,11 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
   .detailCard { max-width: 700px; }
 }
 
-/* ── MOBILE LANDSCAPE ── */
-@media (max-height: 450px) and (orientation: landscape) {
+/* ── MOBILE LANDSCAPE (Android-safe) ── */
+/* Uses min-aspect-ratio instead of orientation: landscape for reliable Android detection.
+   Also bumped max-height to 500px to catch more Android devices with nav bars. */
+@media screen and (max-height: 500px) and (min-aspect-ratio: 1/1) {
 
-  /* ── GLOBAL: fill the whole screen ── */
   html, body { height: 100%; overflow-x: hidden; }
 
   .app {
@@ -1032,7 +1033,6 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
   }
   #artifactScreen > h2    { grid-column: 1 / -1; }
   #artifactScreen > .save { grid-column: 1 / -1; padding: 11px; font-size: 0.82rem; }
-  /* QR, canvas, notes span full width */
   #artifactScreen > .card:has(#qrcode),
   #artifactScreen > .card:has(canvas),
   #artifactScreen > .card:has(#notes) { grid-column: 1 / -1; }
@@ -1042,11 +1042,7 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
   .type-btn span { font-size: 0.95rem; }
   .cond-btn  { min-height: 40px; font-size: 0.88rem; }
 
-  /* ── ARCHIVE: search bar + 2-col card list ── */
-  #databaseScreen {
-    display: flex;
-    flex-direction: column;
-  }
+  /* ── ARCHIVE: 2-col card list ── */
   .db-toolbar { margin-bottom: 8px; }
   #artifactList {
     display: grid;
@@ -1060,31 +1056,13 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
   .card-meta { font-size: 0.7rem; }
   .card-date { font-size: 0.62rem; }
 
-  /* ── DETAIL: left = QR + meta, right = content ── */
-  #detailScreen {
-    display: grid;
-    grid-template-columns: 200px 1fr;
-    column-gap: 14px;
-    align-items: start;
-  }
-  /* Back button spans full width */
-  #detailScreen > .secondaryBtn:first-child {
-    grid-column: 1 / -1;
-    margin-bottom: 8px;
-  }
-  /* Detail card fills right column */
-  #detailScreen > #artifactDetail { grid-column: 2; grid-row: 2; }
-  /* QR shown in left column via detailCard internal layout */
+  /* ── DETAIL ── */
   .detailCard { padding: 9px 12px; }
   .detail-type { font-size: 0.95rem; }
   .detail-actions { margin-top: 7px; margin-bottom: 7px; flex-wrap: wrap; }
   .detail-actions .secondaryBtn { min-height: 36px; padding: 6px 10px; margin-top: 0; }
 
-  /* ── STATISTICS: 2 charts side by side, summary below ── */
-  #statsScreen {
-    display: flex;
-    flex-direction: column;
-  }
+  /* ── STATISTICS: 2 charts side by side ── */
   #statsContent {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1097,12 +1075,12 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
   .stat-bar-row { margin-bottom: 5px; }
   .stat-bar-label { font-size: 0.72rem; min-width: 80px; }
 
-  /* ── MAP: full remaining height ── */
-  #map { height: calc(100vh - 90px); min-height: 180px; }
+  /* ── MAP ── */
+  #map { height: calc(var(--vh, 1vh) * 100 - 90px); min-height: 180px; }
 
-  /* ── SCANNER: centred, full remaining height ── */
+  /* ── SCANNER ── */
   #reader { min-height: 200px; max-width: 100%; margin: 0; }
-  #reader video { width: 100% !important; height: calc(100vh - 100px) !important; object-fit: cover; }
+  #reader video { width: 100% !important; height: calc(var(--vh, 1vh) * 100 - 100px) !important; object-fit: cover; }
 
   /* ── VOICE INTERVIEW: mic left, content right ── */
   #voiceCaptureScreen {
@@ -1111,12 +1089,9 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
     column-gap: 14px;
     align-items: start;
   }
-  /* Topbar (title + stop button) spans full width */
   #voiceCaptureScreen > .vi-topbar { grid-column: 1 / -1; }
-  /* Progress + step label span full width */
   #voiceCaptureScreen > .vi-progress,
   #voiceCaptureScreen > .vi-step-label { grid-column: 1 / -1; }
-  /* Mic button in left column, rows 3+ */
   #voiceCaptureScreen > .voice-big-btn-wrap {
     grid-column: 1;
     grid-row: 3 / 8;
@@ -1125,7 +1100,6 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
     justify-content: center;
     padding: 0;
   }
-  /* Everything else in right column */
   #voiceCaptureScreen > .vi-question-card { grid-column: 2; grid-row: 3; }
   #voiceCaptureScreen > .vi-transcript    { grid-column: 2; grid-row: 4; }
   #voiceCaptureScreen > .vi-heard         { grid-column: 2; grid-row: 5; }
@@ -1146,155 +1120,3 @@ body.field-mode .big-tap, body.field-mode .secondaryBtn { min-height: 58px; font
 
   .vi-btn-accept, .vi-btn-retry, .vi-btn-skip { min-height: 38px; font-size: 0.66rem; padding: 7px 6px; }
 }
-
-  .app {
-    max-width: none;
-    width: 100vw;
-    min-height: 100vh;
-    padding: 6px 10px;
-    border: none !important;
-  }
-
-  /* Slim header */
-  header {
-    padding: 5px 10px;
-    margin-bottom: 8px;
-    border-radius: 8px;
-  }
-
-  header h1 { font-size: 1rem; }
-  .header-sub, .header-version { display: none; }
-  .homeBtn, .fieldModeBtn {
-    min-height: 34px; min-width: 34px;
-    padding: 5px 9px; font-size: 0.9rem;
-  }
-
-  /* Stats — compact single row */
-  .stats-strip {
-    display: flex;
-    gap: 6px;
-    margin-bottom: 8px;
-  }
-
-  .stat-box { padding: 4px 6px; }
-  .stat-box span  { font-size: 0.95rem; }
-  .stat-box label { font-size: 0.48rem; }
-
-  /* ── HOME GRID: 3 columns × 2 rows, wide buttons ── */
-  .home-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-  }
-
-  .mainButton {
-    height: 72px;
-    gap: 4px;
-    border-radius: 10px;
-    flex-direction: row;
-    justify-content: center;
-    padding: 0 10px;
-    gap: 10px;
-  }
-
-  .btn-icon  { font-size: 1.4rem; flex-shrink: 0; }
-  .btn-label { font-size: 0.72rem; letter-spacing: 0.03em; text-align: left; }
-
-  /* Screen headings */
-  .screen > h2 {
-    font-size: 0.9rem;
-    margin-bottom: 7px;
-    padding-bottom: 5px;
-  }
-
-  /* Cards */
-  .card { padding: 8px 12px; margin-top: 8px; }
-  .card h3 { font-size: 0.62rem; margin-bottom: 5px; padding-bottom: 4px; }
-  .card label { margin-top: 6px; font-size: 0.6rem; }
-
-  /* Inputs */
-  textarea,
-  input:not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="checkbox"]),
-  select {
-    padding: 7px 10px;
-    font-size: 0.9rem;
-  }
-
-  /* Artifact form — two columns */
-  #artifactScreen {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 12px;
-    align-items: start;
-  }
-  #artifactScreen > h2    { grid-column: 1 / -1; }
-  #artifactScreen > .save { grid-column: 1 / -1; padding: 11px; font-size: 0.82rem; }
-  #artifactScreen > .card:has(#qrcode),
-  #artifactScreen > .card:has(canvas),
-  #artifactScreen > .card:has(#notes) { grid-column: 1 / -1; }
-
-  .type-grid { grid-template-columns: repeat(6, 1fr); gap: 4px; }
-  .type-btn  { min-height: 42px; font-size: 0.68rem; }
-  .type-btn span { font-size: 0.95rem; }
-  .cond-btn  { min-height: 40px; font-size: 0.88rem; }
-
-  .big-tap, .secondaryBtn { min-height: 38px; padding: 7px 12px; font-size: 0.7rem; }
-  .save { margin-top: 8px; min-height: 42px; }
-
-  canvas { height: 110px; }
-
-  /* Database — two columns */
-  #artifactList {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 7px;
-  }
-  #artifactList .artifactCard { margin-top: 0; padding: 7px 10px; }
-  .card-icon { font-size: 1.1rem; }
-  .card-type { font-size: 0.82rem; }
-  .card-meta { font-size: 0.7rem; }
-  .card-date { font-size: 0.62rem; }
-
-  /* Stats — two columns */
-  #statsContent {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-  #statsContent .stats-card:last-child { grid-column: 1 / -1; }
-  .stats-card { padding: 9px; margin-bottom: 0; }
-
-  /* Voice interview */
-  #voiceCaptureScreen {
-    display: grid;
-    grid-template-columns: 120px 1fr;
-    column-gap: 14px;
-    align-items: start;
-  }
-  #voiceCaptureScreen > h2 { grid-column: 1 / -1; }
-  .vi-question-card  { padding: 10px; margin-bottom: 7px; }
-  .vi-question-icon  { font-size: 1.3rem; margin-bottom: 3px; }
-  .vi-question-text  { font-size: 0.82rem; }
-  .vi-example        { font-size: 0.7rem; }
-  .vi-transcript     { min-height: 28px; padding: 5px 9px; font-size: 0.85rem; margin-bottom: 7px; }
-  .voice-big-btn-wrap { padding: 6px 0; }
-  .voice-big-btn      { width: 90px; height: 90px; }
-  #voiceCaptureIcon   { font-size: 1.6rem; }
-  #voiceCaptureLabel  { font-size: 0.56rem; }
-
-  /* Map — full height */
-  #map { height: calc(100vh - 90px); min-height: 180px; }
-
-  /* Scanner */
-  #reader { min-height: 180px; }
-
-  /* Detail */
-  .detailCard       { padding: 9px 12px; }
-  .detail-type      { font-size: 0.95rem; }
-  .detail-actions   { margin-top: 7px; margin-bottom: 7px; }
-  .detail-actions .secondaryBtn { min-height: 36px; padding: 6px 10px; }
-
-  /* Toast */
-  #toast { bottom: 8px; font-size: 0.7rem; padding: 6px 13px; }
-
-  /* Backup bar */
-  .backup-bar { padding: 6px 10px; font-size: 0.75rem; margin-top: 8px; }
